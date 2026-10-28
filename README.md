@@ -10,7 +10,7 @@ Built with Three.js, TypeScript and Vite. No framework.
 npm install
 npm run dev       # http://localhost:5173
 npm test          # data integrity + time-scale tests
-npm run build     # static site in dist/, served from any path
+npm run build     # static site in dist/, served from any path (see Cloud Run below)
 ```
 
 ## What you're looking at
@@ -119,6 +119,88 @@ The data tests (`src/data/data.test.ts`) check that:
 - every lifespan anchor agrees with its event
 
 To add an event, append it to `src/data/events.ts` at its place in the story, then run `npm test`.
+
+## Deploy to Google Cloud Run
+
+The app is a static site. The `Dockerfile` runs the tests, builds the site, and serves it from unprivileged
+nginx on the port Cloud Run provides (`$PORT`, 8080 by default). The image serves:
+
+- **Caching:** `assets/*` is fingerprinted and cached for a year; the page itself revalidates on every load, so a
+  new deploy shows up at once.
+- **Security headers:** a strict Content-Security-Policy that allows only same-origin scripts and Google Fonts,
+  plus HSTS, `nosniff`, a referrer policy and a permissions policy.
+- **Compression and health:** gzip, and a `/healthz` endpoint for uptime checks.
+- **Sizing:** the image is about 90 MB, and nginx idles at about 5 MiB of memory, so 256 MiB is ample. It scales
+  to zero when idle, so it costs nothing while nobody is visiting.
+
+### One command
+
+From the repository root, with the [gcloud CLI](https://cloud.google.com/sdk/docs/install) signed in to your project:
+
+```bash
+gcloud run deploy golden-path --source . --region us-central1 --allow-unauthenticated
+```
+
+Cloud Build builds the `Dockerfile` remotely, so you don't need Docker locally. The first run asks to enable
+the needed APIs and to create an Artifact Registry repository. It prints the service URL when done.
+
+### Repeatable pipeline (`cloudbuild.yaml`)
+
+For CI, or to pin region and limits, use the Cloud Build config. Set it up once per project:
+
+```bash
+PROJECT_ID=$(gcloud config get-value project)
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+gcloud artifacts repositories create golden-path --repository-format=docker --location=us-central1
+```
+
+Then grant the service account Cloud Build runs as permission to deploy:
+
+```bash
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+  --role=roles/run.admin
+```
+
+```bash
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')-compute@developer.gserviceaccount.com" \
+  --role=roles/iam.serviceAccountUser
+```
+
+That is the Compute Engine default account, which new projects use for Cloud Build. Older projects may use
+`PROJECT_NUMBER@cloudbuild.gserviceaccount.com` instead; the Cloud Build settings page shows which one yours runs as.
+
+Each deploy after that:
+
+```bash
+gcloud builds submit --config cloudbuild.yaml
+```
+
+Override the defaults with `--substitutions=_REGION=europe-west1,_SERVICE=dune`. The pipeline tags each image
+with its build ID and deploys:
+
+| Setting | Value |
+| --- | --- |
+| CPU | 1 |
+| Memory | 256 MiB |
+| Instances | 0 to 3 |
+| Access | public (`--allow-unauthenticated`) |
+
+To build on every push, connect the GitHub repository as a
+[Cloud Build trigger](https://cloud.google.com/build/docs/automating-builds/create-manage-triggers) that uses this
+file.
+
+### Notes
+
+- **Org policies.** If your organisation restricts public services (Domain Restricted Sharing),
+  `--allow-unauthenticated` will be refused. Drop it, or put the service behind IAP or a load balancer.
+- **Base images.** These come from `mirror.gcr.io`, Google's mirror of Docker Hub, so builds don't hit Docker
+  Hub's anonymous pull limits.
+- **Local run.** `docker build -t golden-path . && docker run --rm -p 8080:8080 golden-path`, then open
+  http://localhost:8080. Set `-e PORT=9090 -p 9090:9090` to check the port handling Cloud Run relies on.
+- **Custom domain.** Use Cloud Run domain mappings or a load balancer. The Content-Security-Policy is host-agnostic
+  (`'self'`), so it needs no change.
 
 ## Controls
 

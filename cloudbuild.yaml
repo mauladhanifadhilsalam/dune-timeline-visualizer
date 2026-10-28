@@ -1,0 +1,49 @@
+# Build the image, push it to Artifact Registry and deploy it to Cloud Run.
+#
+#   gcloud builds submit --config cloudbuild.yaml
+#
+# Override any substitution with --substitutions=_REGION=europe-west1,... The Artifact Registry
+# repository must exist first; see "Deploy to Google Cloud Run" in README.md.
+substitutions:
+  _REGION: us-central1
+  _REPOSITORY: golden-path
+  _SERVICE: golden-path
+  _IMAGE: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
+
+steps:
+  # The Dockerfile runs the test suite before bundling, so a failing test stops the deploy here.
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', '${_IMAGE}:${BUILD_ID}', '-t', '${_IMAGE}:latest', '.']
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '--all-tags', '${_IMAGE}']
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}:${BUILD_ID}
+      - --region=${_REGION}
+      - --platform=managed
+      - --port=8080
+      - --cpu=1
+      - --memory=256Mi
+      - --concurrency=200
+      - --min-instances=0
+      - --max-instances=3
+      - --allow-unauthenticated
+
+images:
+  - ${_IMAGE}:${BUILD_ID}
+  - ${_IMAGE}:latest
+
+timeout: 900s

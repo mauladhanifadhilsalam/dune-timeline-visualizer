@@ -1,0 +1,37 @@
+# Rendered at container start by the nginx image's envsubst step: only ${PORT} is substituted
+# (nginx's own $variables are left alone because they are not set in the environment).
+server {
+    listen ${PORT};
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml text/plain;
+
+    # Cheap liveness check for uptime monitors (Cloud Run itself probes the TCP port).
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Vite fingerprints everything under assets/: a file never changes under the same name.
+    location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # The page itself: always revalidate, so a new deploy is seen on the next load.
+    # Deep links are #hashes, so there is no client-side routing to fall back for.
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ =404;
+    }
+}
