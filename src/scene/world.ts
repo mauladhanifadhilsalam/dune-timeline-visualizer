@@ -9,8 +9,15 @@ import { FOG_COLOR, duneHeight } from './desert';
 
 const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+/** Zero velocity and zero acceleration at both ends: the gentlest start and landing. */
+const smootherstep = (x: number) => x * x * x * (x * (x * 6 - 15) + 10);
+
+/** Writes the eye and target for progress k in [0, 1] along a route. */
+export type RouteSampler = (k: number, eye: THREE.Vector3, target: THREE.Vector3) => void;
 
 interface Flight {
+  /** When set, the flight follows this route instead of a straight line between the ends. */
+  sample?: RouteSampler;
   fromEye: THREE.Vector3;
   fromTarget: THREE.Vector3;
   toEye: THREE.Vector3;
@@ -157,6 +164,25 @@ export class World {
     };
   }
 
+  /**
+   * Follow a route (e.g. along the timeline's path) over `duration` seconds, eased so it leaves
+   * and arrives with no jolt. The route owns the shape; this only drives the clock.
+   */
+  flyAlong(sample: RouteSampler, duration: number, done?: () => void): void {
+    this.flight = {
+      sample,
+      fromEye: this.camera.position.clone(),
+      fromTarget: this.controls.target.clone(),
+      toEye: new THREE.Vector3(),
+      toTarget: new THREE.Vector3(),
+      t: 0,
+      duration: Math.max(duration, 0.001),
+      arc: 0,
+      ease: smootherstep,
+      done,
+    };
+  }
+
   cancelFlight(): void {
     this.flight = null;
   }
@@ -173,9 +199,13 @@ export class World {
     if (f) {
       f.t = Math.min(f.t + dt / f.duration, 1);
       const k = f.ease(f.t);
-      this.controls.target.lerpVectors(f.fromTarget, f.toTarget, k);
-      this.camera.position.lerpVectors(f.fromEye, f.toEye, k);
-      this.camera.position.y += Math.sin(Math.PI * k) * f.arc;
+      if (f.sample) {
+        f.sample(k, this.camera.position, this.controls.target);
+      } else {
+        this.controls.target.lerpVectors(f.fromTarget, f.toTarget, k);
+        this.camera.position.lerpVectors(f.fromEye, f.toEye, k);
+        this.camera.position.y += Math.sin(Math.PI * k) * f.arc;
+      }
       if (f.t >= 1) {
         this.flight = null;
         f.done?.();

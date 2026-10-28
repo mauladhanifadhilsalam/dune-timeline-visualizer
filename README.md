@@ -40,8 +40,11 @@ npm run build     # static site in dist/, served from any path
   - it greens under Leto II, starting faintly in *Children of Dune*
   - it has no worms during his reign, when he is the last of them
   - it is scorched glass after the Honored Matres burn Rakis
-- **Camera.** It stays on one side of the path and glides from event to event, keeping whatever angle you've
-  orbited to. Only jumps across eras lift it.
+- **Camera.** It travels along the golden path itself, riding beside the thread through every bend at the
+  angle you've orbited to.
+  - A step to a neighbouring event takes about two seconds.
+  - A jump across eras takes up to six seconds and pulls back a little at cruising speed.
+  - It eases in and out with no jolt at either end.
 
 ### Two switches that exist to make a point
 

@@ -3,7 +3,7 @@ import { CONTRADICTIONS, ERAS, EVENTS, LIFELINES, NOVELS, UNDATED } from './data
 import type { Category, Certainty, Mode, NovelId, Reckoning } from './data/types';
 import { createDesert } from './scene/desert';
 import { WorldProps } from './scene/props';
-import { GoldenPath, createPathMesh, makeFrame } from './scene/path';
+import { GoldenPath, createPathMesh, makeFrame, type PathFrame } from './scene/path';
 import { TimelineLayer, type Layers } from './scene/timeline';
 import { World } from './scene/world';
 import { CATEGORY_GLYPH, CATEGORY_LABEL, CERTAINTY_LABEL, MODE_LABEL, NOVEL_COLOR, formatYear } from './timeline/format';
@@ -233,10 +233,73 @@ export function createApp(): void {
     return { eye, target };
   }
 
+  // ── Riding the thread ─────────────────────────────────────────────────────────────────
+  // Positions relative to the path are kept as (across, up, along) in its local frame, so a
+  // camera carried from one moment to another turns with every bend of the path.
+  type Local = [number, number, number];
+  const horizontal = (f: PathFrame) => new THREE.Vector3(f.tangent.x, 0, f.tangent.z).normalize();
+  const toLocal = (v: THREE.Vector3, f: PathFrame): Local => [v.dot(f.side), v.y, v.dot(horizontal(f))];
+  const fromLocal = (l: Local, f: PathFrame, out: THREE.Vector3) =>
+    out
+      .copy(f.side)
+      .multiplyScalar(l[0])
+      .addScaledVector(UP, l[1])
+      .addScaledVector(horizontal(f), l[2]);
+  const lerpLocal = (a: Local, b: Local, k: number): Local => [
+    a[0] + (b[0] - a[0]) * k,
+    a[1] + (b[1] - a[1]) * k,
+    a[2] + (b[2] - a[2]) * k,
+  ];
+
+  /**
+   * Travel along the golden path to moment t1, ending at the given target and eye. The camera
+   * rides beside the thread at the same angle it had, through every bend in between, rather than
+   * cutting across. Pace follows how much timeline lies between: a step to a neighbour takes
+   * about two seconds, a jump across eras up to six, pulling back a little at speed so the ground
+   * going by stays readable.
+   */
+  function rideTo(t1: number, endTarget: THREE.Vector3, endEye: THREE.Vector3, done?: () => void): void {
+    if (reducedMotion.matches) {
+      world.flyTo(endEye, endTarget, 0, done);
+      return;
+    }
+    const eye0 = world.camera.position.clone();
+    const target0 = world.controls.target.clone();
+    // From high above (the overview) there is no thread to ride yet: glide straight down to it.
+    if (eye0.distanceTo(target0) > 300) {
+      world.flyTo(endEye, endTarget, 2.4, done);
+      return;
+    }
+    const t0 = path.nearestT(target0);
+    const f0 = path.frameAt(t0, makeFrame());
+    const f1 = path.frameAt(t1, makeFrame());
+    const aim0 = toLocal(target0.clone().sub(f0.pos), f0);
+    const aim1 = toLocal(endTarget.clone().sub(f1.pos), f1);
+    const view0 = toLocal(eye0.clone().sub(target0), f0);
+    const view1 = toLocal(endEye.clone().sub(endTarget), f1);
+    const distance = Math.abs(t1 - t0) * path.length;
+    const duration = THREE.MathUtils.clamp(1.6 + distance / 320, 1.8, 6);
+    const pullBack = Math.min(distance / 1400, 1) * 0.55;
+    const f = makeFrame();
+    const off = new THREE.Vector3();
+    world.flyAlong(
+      (k, eye, target) => {
+        path.frameAt(t0 + (t1 - t0) * k, f);
+        fromLocal(lerpLocal(aim0, aim1, k), f, target).add(f.pos);
+        const view = lerpLocal(view0, view1, k);
+        const s = 1 + pullBack * Math.sin(Math.PI * k);
+        eye.copy(target).add(fromLocal([view[0] * s, view[1] * s, view[2] * s], f, off));
+      },
+      duration,
+      done,
+    );
+  }
+
   function flyToEvent(id: string, done?: () => void): void {
     const pose = eventPose(id);
-    if (!pose) return;
-    world.flyTo(pose.eye, pose.target, reducedMotion.matches ? 0 : undefined, done);
+    const t = layer.eventT(id);
+    if (!pose || t === null) return;
+    rideTo(t, pose.target, pose.eye, done);
   }
 
   function overviewPose(): { eye: THREE.Vector3; target: THREE.Vector3 } {
@@ -268,7 +331,7 @@ export function createApp(): void {
       return;
     }
     if (final && !scrubber.isDragging && world.controls.target.distanceTo(target) > 40) {
-      world.flyTo(tmpB.copy(target).add(offset), target, reducedMotion.matches ? 0 : 0.7);
+      rideTo(t, target.clone(), target.clone().add(offset));
     } else {
       world.translate(tmpB.copy(target).sub(world.controls.target));
     }
@@ -731,7 +794,10 @@ export function createApp(): void {
   syncMotion();
   reducedMotion.addEventListener('change', syncMotion);
 
-  function frameLoop(now: number): void {
+  function frameLoop(): void {
+    // performance.now() rather than the rAF timestamp: identical in browsers, and it lets a test
+    // harness with a fake clock drive the animation deterministically.
+    const now = performance.now();
     const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1);
     last = now;
     elapsed += dt;
