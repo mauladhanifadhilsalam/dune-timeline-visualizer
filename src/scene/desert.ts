@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { fbm, rng } from './noise';
-import { pathZ } from './path';
+import { GoldenPath, PATH_HALF_X, pathZ } from './path';
 
 /** Low dusk sun. Arrakis orbits Canopus; this is it, setting. */
 export const SUN_DIR = new THREE.Vector3(-0.55, 0.16, -0.82).normalize();
-export const FOG_COLOR = new THREE.Color('#4a3140');
+export const FOG_COLOR = new THREE.Color('#6a3f45');
 
 const smoothstep = (a: number, b: number, x: number) => {
   const t = Math.min(Math.max((x - a) / (b - a), 0), 1);
@@ -34,7 +35,115 @@ export function duneHeight(x: number, z: number): number {
  */
 const warp = (u: number) => 0.3 * u + 0.7 * u * u * u * u * u;
 
-function buildTerrain(): THREE.Mesh {
+/** A t-range on the path [rampIn0, rampIn1, rampOut0, rampOut1]; t outside [0, 1] disables it. */
+export type Band = [number, number, number, number];
+const OFF: Band = [2, 2, 3, 3];
+
+/** A flattened, tinted disc of ground for a city or a spice field. */
+export interface Pad {
+  x: number;
+  z: number;
+  radius: number;
+  y: number;
+  tint: THREE.Color;
+  amount: number;
+}
+
+/**
+ * Uniforms shared by the terrain and the trees. The ground knows, per vertex, which moment of the
+ * timeline it lies beside (aPathT), so eras can colour it: green under Leto II, scorched glass
+ * where the Honored Matres burned Rakis.
+ */
+const eco = {
+  uGreen: { value: new THREE.Vector4(...OFF) },
+  uGreenVis: { value: 0 },
+  uScorchVis: { value: 0 },
+  uScorch: { value: new THREE.Vector4(...OFF) },
+  uPads: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+  uPadTint: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+};
+
+const ECO_COMMON = /* glsl */ `
+  uniform vec4 uGreen;
+  uniform float uGreenVis;
+  uniform vec4 uScorch;
+  uniform float uScorchVis;
+  float ecoBand(vec4 r, float t) { return smoothstep(r.x, r.y, t) * (1.0 - smoothstep(r.z, r.w, t)); }
+`;
+
+function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
+  Object.assign(shader.uniforms, eco);
+  shader.vertexShader = shader.vertexShader
+    .replace(
+      '#include <common>',
+      /* glsl */ `#include <common>
+      ${ECO_COMMON}
+      attribute float aPathT;
+      attribute float aPathDist;
+      uniform vec4 uPads[2];
+      uniform vec4 uPadTint[2];
+      varying float vGreen;
+      varying float vScorch;
+      varying vec3 vPadCol;
+      varying float vPadA;
+      varying vec2 vXZ;
+      float padMask(vec2 xz, vec4 p) {
+        if (p.z <= 0.0) return 0.0;
+        return 1.0 - smoothstep(p.z * 0.72, p.z, length(xz - p.xy));
+      }`,
+    )
+    .replace(
+      '#include <beginnormal_vertex>',
+      /* glsl */ `#include <beginnormal_vertex>
+      float pm0 = padMask(position.xz, uPads[0]);
+      float pm1 = padMask(position.xz, uPads[1]);
+      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), max(pm0, pm1)));`,
+    )
+    .replace(
+      '#include <begin_vertex>',
+      /* glsl */ `#include <begin_vertex>
+      transformed.y = mix(transformed.y, uPads[0].w, pm0);
+      transformed.y = mix(transformed.y, uPads[1].w, pm1);
+      vPadA = uPadTint[0].a * pm0 + uPadTint[1].a * pm1;
+      vPadCol = uPadTint[0].rgb * uPadTint[0].a * pm0 + uPadTint[1].rgb * uPadTint[1].a * pm1;
+      vGreen = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(380.0, 720.0, aPathDist));
+      vScorch = uScorchVis * ecoBand(uScorch, aPathT) * (1.0 - smoothstep(180.0, 480.0, aPathDist));
+      vXZ = position.xz;`,
+    );
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      '#include <common>',
+      /* glsl */ `#include <common>
+      varying float vGreen;
+      varying float vScorch;
+      varying vec3 vPadCol;
+      varying float vPadA;
+      varying vec2 vXZ;`,
+    )
+    .replace(
+      '#include <color_fragment>',
+      /* glsl */ `#include <color_fragment>
+      float lumV = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+      diffuseColor.rgb = diffuseColor.rgb * (1.0 - vPadA) + vPadCol * (0.7 + 0.9 * lumV);
+      vec3 grass = mix(vec3(0.09, 0.2, 0.05), vec3(0.26, 0.38, 0.1), smoothstep(0.08, 0.3, lumV));
+      diffuseColor.rgb = mix(diffuseColor.rgb, grass, vGreen);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.045, 0.04), vScorch);`,
+    )
+    .replace(
+      '#include <roughnessmap_fragment>',
+      /* glsl */ `#include <roughnessmap_fragment>
+      roughnessFactor = mix(roughnessFactor, 0.32, vScorch);`,
+    )
+    .replace(
+      '#include <emissivemap_fragment>',
+      /* glsl */ `#include <emissivemap_fragment>
+      // Sparse embers still glowing in the fused sand.
+      float ember = 0.5 + 0.5 * sin(vXZ.x * 0.13) * sin(vXZ.y * 0.11 + sin(vXZ.x * 0.05) * 3.0);
+      totalEmissiveRadiance += vec3(1.0, 0.3, 0.06) * vScorch * pow(ember, 14.0) * 0.9;`,
+    );
+}
+
+function buildTerrain(path: GoldenPath): THREE.Mesh {
   const X_MAX = 7000;
   const Z_MAX = 6000;
   const geo = new THREE.PlaneGeometry(2, 2, 420, 280);
@@ -63,13 +172,90 @@ function buildTerrain(): THREE.Mesh {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
+  const pathT = new Float32Array(pos.count);
+  const pathDist = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const cx = Math.min(Math.max(x, -PATH_HALF_X), PATH_HALF_X);
+    pathT[i] = path.tAtX(x);
+    pathDist[i] = Math.abs(pos.getZ(i) - pathZ(cx)) + Math.abs(x - cx);
+  }
+  geo.setAttribute('aPathT', new THREE.BufferAttribute(pathT, 1));
+  geo.setAttribute('aPathDist', new THREE.BufferAttribute(pathDist, 1));
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.96,
     metalness: 0,
   });
+  mat.onBeforeCompile = terrainShader;
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'desert';
+  return mesh;
+}
+
+/**
+ * Leto II's forests. Planted once along the stretch of path any reckoning or scale could give the
+ * God Emperor; each tree grows or shrinks to nothing in the vertex shader as the green band moves.
+ */
+function buildTrees(path: GoldenPath): THREE.InstancedMesh {
+  const rand = rng(13725);
+  const trunk = new THREE.CylinderGeometry(0.28, 0.42, 3.2, 6).translate(0, 1.6, 0);
+  const crown = new THREE.ConeGeometry(2.3, 6.5, 7).translate(0, 6.2, 0);
+  const top = new THREE.ConeGeometry(1.5, 4.2, 7).translate(0, 9.2, 0);
+  const paint = (g: THREE.BufferGeometry, hex: string) => {
+    const c = new THREE.Color(hex);
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) c.toArray(arr, i * 3);
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
+  const geo = mergeGeometries([paint(trunk, '#5a3d27'), paint(crown, '#4b6e33'), paint(top, '#62873f')]);
+  const N = 2200;
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
+  const mesh = new THREE.InstancedMesh(geo, mat, N);
+  const aT = new Float32Array(N);
+  const aD = new Float32Array(N);
+  const aSeed = new Float32Array(N);
+  const x0 = -PATH_HALF_X + PATH_HALF_X * 2 * 0.45;
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  for (let i = 0; i < N; i++) {
+    const x = x0 + rand() * (PATH_HALF_X - x0);
+    const d = 18 + Math.pow(rand(), 0.9) * 320;
+    const z = pathZ(x) + (rand() < 0.5 ? -1 : 1) * d;
+    const s = 1.1 + rand() * 1.8;
+    q.setFromAxisAngle(up, rand() * Math.PI * 2);
+    m.compose(new THREE.Vector3(x, duneHeight(x, z) - 0.6, z), q, new THREE.Vector3(s, s * (0.8 + rand() * 0.5), s));
+    mesh.setMatrixAt(i, m);
+    aT[i] = path.tAtX(x);
+    aD[i] = d;
+    aSeed[i] = rand();
+  }
+  mesh.geometry.setAttribute('aPathT', new THREE.InstancedBufferAttribute(aT, 1));
+  mesh.geometry.setAttribute('aPathDist', new THREE.InstancedBufferAttribute(aD, 1));
+  mesh.geometry.setAttribute('aSeed', new THREE.InstancedBufferAttribute(aSeed, 1));
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, eco);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        ${ECO_COMMON}
+        attribute float aPathT;
+        attribute float aPathDist;
+        attribute float aSeed;`,
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        float g = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(200.0, 330.0, aPathDist));
+        transformed *= clamp(g * 1.5 - aSeed * 0.5, 0.0, 1.0);`,
+      );
+  };
+  mesh.frustumCulled = false;
+  mesh.name = 'forest';
   return mesh;
 }
 
@@ -157,12 +343,14 @@ function buildStars(): THREE.Points {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  // Additive, so a faint star fades into a bright dusk sky instead of showing as a dark speck.
   const mat = new THREE.PointsMaterial({
     size: 1.6,
     sizeAttenuation: false,
     vertexColors: true,
     transparent: true,
     depthWrite: false,
+    blending: THREE.AdditiveBlending,
     fog: false,
   });
   const pts = new THREE.Points(geo, mat);
@@ -244,6 +432,8 @@ const sandVertex = /* glsl */ `
   uniform vec3 uCenter;
   uniform vec3 uBox;
   uniform float uPixelRatio;
+  uniform float uSize;
+  uniform float uIntensity;
   attribute float aSeed;
   varying float vAlpha;
   void main() {
@@ -254,23 +444,28 @@ const sandVertex = /* glsl */ `
     vec4 mv = modelViewMatrix * vec4(uCenter + rel, 1.0);
     gl_Position = projectionMatrix * mv;
     float dist = -mv.z;
-    gl_PointSize = clamp(90.0 / dist, 0.6, 3.0) * uPixelRatio;
-    vAlpha = (1.0 - smoothstep(60.0, 220.0, dist)) * (0.3 + 0.5 * aSeed);
+    gl_PointSize = clamp(90.0 * uSize / dist, 0.6, 3.0 * uSize) * uPixelRatio;
+    vAlpha = uIntensity * (1.0 - smoothstep(60.0, 220.0, dist)) * (0.3 + 0.5 * aSeed);
   }
 `;
 
 const sandFragment = /* glsl */ `
+  uniform vec3 uColor;
   varying float vAlpha;
   void main() {
     vec2 c = gl_PointCoord - 0.5;
     float a = smoothstep(0.5, 0.1, length(c)) * vAlpha;
-    gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * 0.9, a);
+    gl_FragColor = vec4(uColor, a);
   }
 `;
 
-function buildSand(): { points: THREE.Points; uniforms: Record<string, THREE.IUniform> } {
-  const N = 2400;
-  const rand = rng(2024);
+function buildSand(
+  N = 2400,
+  color = new THREE.Color(1, 0.72, 0.42).multiplyScalar(0.9),
+  size = 1,
+  seedValue = 2024,
+): { points: THREE.Points; uniforms: Record<string, THREE.IUniform> } {
+  const rand = rng(seedValue);
   const box = new THREE.Vector3(420, 50, 420);
   const pos = new Float32Array(N * 3);
   const seed = new Float32Array(N);
@@ -288,6 +483,9 @@ function buildSand(): { points: THREE.Points; uniforms: Record<string, THREE.IUn
     uCenter: { value: new THREE.Vector3() },
     uBox: { value: box },
     uPixelRatio: { value: 1 },
+    uSize: { value: size },
+    uIntensity: { value: 1 },
+    uColor: { value: color },
   };
   const mat = new THREE.ShaderMaterial({
     uniforms,
@@ -307,11 +505,20 @@ export interface Desert {
   group: THREE.Group;
   tick: (time: number, focus: THREE.Vector3, eye: THREE.Vector3, pixelRatio: number) => void;
   setWind: (on: boolean) => void;
+  /** Where on the path (t) the ground is green and where it is scorched. */
+  setEcology: (green: Band | null, scorch: Band | null) => void;
+  /** Up to two flattened pads (city, spice field). */
+  setPads: (pads: Pad[]) => void;
+  /** 0..1: how thick the glowing spice motes hang in the air around the camera. */
+  setSpice: (level: number) => void;
+  /** 0..1 each: how much of the green and scorched bands show, given where the camera is in time. */
+  setEcologyVisibility: (green: number, scorch: number) => void;
 }
 
-export function createDesert(): Desert {
+export function createDesert(path: GoldenPath): Desert {
   const group = new THREE.Group();
-  group.add(buildTerrain());
+  group.add(buildTerrain(path));
+  group.add(buildTrees(path));
   // Sky, stars and moons ride with the camera so they show no parallax.
   const celestial = new THREE.Group();
   celestial.add(buildSky());
@@ -332,6 +539,14 @@ export function createDesert(): Desert {
 
   const sand = buildSand();
   group.add(sand.points);
+  // Melange in the air: fewer, larger, cinnamon-bright motes that feed the bloom.
+  const spice = buildSand(900, new THREE.Color(1.0, 0.42, 0.12).multiplyScalar(2.2), 1.6, 10191);
+  spice.points.name = 'spice';
+  group.add(spice.points);
+  let spiceLevel = 0;
+  let spiceTarget = 0;
+  let greenTarget = 0;
+  let scorchTarget = 0;
   let wind = true;
   let windTime = 0;
   let last = 0;
@@ -343,12 +558,43 @@ export function createDesert(): Desert {
       const dt = Math.min(time - last, 0.1);
       last = time;
       if (wind) windTime += dt;
-      sand.uniforms.uTime.value = windTime;
-      (sand.uniforms.uCenter.value as THREE.Vector3).set(focus.x, 0, focus.z);
-      sand.uniforms.uPixelRatio.value = pixelRatio;
+      for (const f of [sand, spice]) {
+        f.uniforms.uTime.value = windTime;
+        (f.uniforms.uCenter.value as THREE.Vector3).set(focus.x, 0, focus.z);
+        f.uniforms.uPixelRatio.value = pixelRatio;
+      }
+      spiceLevel += (spiceTarget - spiceLevel) * Math.min(dt * 1.5, 1);
+      spice.uniforms.uIntensity.value = spiceLevel;
+      spice.points.visible = spiceLevel > 0.01;
+      eco.uGreenVis.value += (greenTarget - eco.uGreenVis.value) * Math.min(dt * 1.2, 1);
+      eco.uScorchVis.value += (scorchTarget - eco.uScorchVis.value) * Math.min(dt * 1.2, 1);
     },
     setWind(on) {
       wind = on;
+    },
+    setEcology(green, scorch) {
+      eco.uGreen.value.set(...(green ?? OFF));
+      eco.uScorch.value.set(...(scorch ?? OFF));
+    },
+    setPads(pads) {
+      for (let i = 0; i < 2; i++) {
+        const p = pads[i];
+        if (p) {
+          eco.uPads.value[i].set(p.x, p.z, p.radius, p.y);
+          eco.uPadTint.value[i].set(p.tint.r, p.tint.g, p.tint.b, p.amount);
+        } else {
+          eco.uPads.value[i].set(0, 0, 0, 0);
+          eco.uPadTint.value[i].set(0, 0, 0, 0);
+        }
+      }
+    },
+    setSpice(level) {
+      spiceTarget = level;
+    },
+    setEcologyVisibility(green, scorch) {
+      // Eased, so stepping across an era boundary grows the forest rather than switching it on.
+      greenTarget = green;
+      scorchTarget = scorch;
     },
   };
 }

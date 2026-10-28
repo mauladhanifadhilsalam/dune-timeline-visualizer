@@ -454,7 +454,8 @@ export class TimelineLayer {
 
     this.novelRibbons.forEach((n, i) => {
       const [t0, t1] = TimelineLayer.widen(p.novels[i]);
-      const lateral = -(NOVEL_LANE0 + n.lane * LANE_STEP);
+      // Novel strips run on the far side of the path from the camera, so they never block it.
+      const lateral = NOVEL_LANE0 + n.lane * LANE_STEP;
       n.ribbon.update(this.path, t0, t1, lateral, LANE_LIFT);
       n.ribbon.pointAt(this.path, t0, t1, 0.5, lateral, LANE_LIFT + 0.6, n.label.obj.position);
     });
@@ -579,10 +580,6 @@ export class TimelineLayer {
 
   eventT(id: string): number | null {
     return this.byId.get(id)?.t ?? null;
-  }
-
-  eventSide(id: string): number {
-    return this.byId.get(id)?.side ?? 1;
   }
 
   /**

@@ -80,6 +80,25 @@ export class GoldenPath {
     return out;
   }
 
+  /**
+   * t where the path crosses world x. The path is a graph z(x), so x rises monotonically with t;
+   * the ground uses this to know which moment of the timeline it lies beside.
+   */
+  tAtX(x: number): number {
+    const L = this.lutPos;
+    if (x <= L[0]) return 0;
+    if (x >= L[LUT_SIZE * 3]) return 1;
+    let lo = 0;
+    let hi = LUT_SIZE;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (L[mid * 3] <= x) lo = mid;
+      else hi = mid;
+    }
+    const a = (x - L[lo * 3]) / (L[hi * 3] - L[lo * 3]);
+    return (lo + a) / LUT_SIZE;
+  }
+
   /** t of the LUT sample nearest to a world point (used for the scrubber playhead). */
   nearestT(point: THREE.Vector3): number {
     let best = 0;

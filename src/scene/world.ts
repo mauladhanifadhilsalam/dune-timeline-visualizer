@@ -8,6 +8,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { FOG_COLOR, duneHeight } from './desert';
 
 const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
 
 interface Flight {
   fromEye: THREE.Vector3;
@@ -17,8 +18,12 @@ interface Flight {
   t: number;
   duration: number;
   arc: number;
+  ease: (x: number) => number;
   done?: () => void;
 }
+
+/** Hops shorter than this are quick ease-out glides; longer ones accelerate, lift and settle. */
+const LONG_HOP = 420;
 
 /**
  * Renderer, camera, controls and post-processing. Knows nothing about Dune;
@@ -129,19 +134,25 @@ export class World {
     return this.flight !== null;
   }
 
-  /** Smoothly move eye and target. `arc` lifts the midpoint so long hops go up and over. */
-  flyTo(toEye: THREE.Vector3, toTarget: THREE.Vector3, duration = 1.8, done?: () => void): void {
+  /**
+   * Move eye and target together. Neighbouring events are a short glide that starts at speed and
+   * settles; only a jump across eras lifts the camera a little so it doesn't plough through dunes.
+   * Duration defaults to one that scales with distance; pass 0 to cut.
+   */
+  flyTo(toEye: THREE.Vector3, toTarget: THREE.Vector3, duration?: number, done?: () => void): void {
     const fromEye = this.camera.position.clone();
     const fromTarget = this.controls.target.clone();
-    const dist = fromTarget.distanceTo(toTarget);
+    const dist = Math.max(fromTarget.distanceTo(toTarget), fromEye.distanceTo(toEye));
+    const long = dist > LONG_HOP;
     this.flight = {
       fromEye,
       fromTarget,
       toEye: toEye.clone(),
       toTarget: toTarget.clone(),
       t: 0,
-      duration: duration * (dist > 600 ? 1.35 : 1),
-      arc: Math.min(dist * 0.28, 420),
+      duration: Math.max(duration ?? THREE.MathUtils.clamp(0.45 + dist / 900, 0.5, 1.5), 0.001),
+      arc: long ? Math.min((dist - LONG_HOP) * 0.08, 120) : 0,
+      ease: long ? easeInOutCubic : easeOutCubic,
       done,
     };
   }
@@ -161,7 +172,7 @@ export class World {
     const f = this.flight;
     if (f) {
       f.t = Math.min(f.t + dt / f.duration, 1);
-      const k = easeInOutCubic(f.t);
+      const k = f.ease(f.t);
       this.controls.target.lerpVectors(f.fromTarget, f.toTarget, k);
       this.camera.position.lerpVectors(f.fromEye, f.toEye, k);
       this.camera.position.y += Math.sin(Math.PI * k) * f.arc;

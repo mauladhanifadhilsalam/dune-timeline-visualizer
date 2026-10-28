@@ -25,6 +25,23 @@ npm run build     # static site in dist/, served from any path
   breaks and resumes across all six books.
 - **Red arcs** join statements of Herbert's that cannot both be true.
 - **Scrubber.** A flat minimap of the whole timeline. Drag it to walk the path.
+- **The world.** Set pieces stand beside the events they belong to:
+  - a Guild heighliner at the Guild's founding
+  - Arrakeen and the Shield Wall, with ornithopters overhead
+  - a Harkonnen spice harvester and its carryall, on a spice field
+  - the Emperor's landed frigates at the Battle of Arrakeen
+  - sandworms
+  - a crysknife
+  - the spice blow that takes Liet-Kynes
+  - thinking-machine wreckage from the Jihad
+
+  Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
+  leave, so a snaking path never shows one era's props on another's horizon. The ground changes with the story:
+  - it greens under Leto II, starting faintly in *Children of Dune*
+  - it has no worms during his reign, when he is the last of them
+  - it is scorched glass after the Honored Matres burn Rakis
+- **Camera.** It stays on one side of the path and glides from event to event, keeping whatever angle you've
+  orbited to. Only jumps across eras lift it.
 
 ### Two switches that exist to make a point
 
@@ -77,11 +94,18 @@ Convention and Pardot Kynes's arrival. They can't honestly be put on an axis.
 
 ```
 src/
-  data/       events, eras, novels, lifespans, contradictions (hand-curated, tested)
-  timeline/   reckoning resolution, story/true time scales, placement morphing, formatting
-  scene/      Three.js: desert, sky and moons, the path, markers and labels, camera
-  ui/         panel, scrubber, search, about/index dialogs
+  data/          events, eras, novels, lifespans, contradictions (hand-curated, tested)
+  timeline/      reckoning resolution, story/true time scales, placement morphing, formatting
+  scene/         Three.js: desert (terrain ecology shader, forest, spice motes), sky and moons,
+                 the path, markers and labels, camera
+  scene/props/   set pieces: catalog (what stands where and when), placement solver, heighliner,
+                 Arrakeen, harvester, sandworm, crysknife, wreckage, particles
+  ui/            panel, scrubber, search, about/index dialogs
 ```
+
+To add a set piece, add an entry to `src/scene/props/catalog.ts` with its event, eras and footprint. Placement
+slides it along and away from its event until it clears the path and the other pieces. `catalog.test.ts`
+checks that its event and eras exist and that it shows in its own event's era.
 
 The data tests (`src/data/data.test.ts`) check that:
 

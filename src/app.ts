@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONTRADICTIONS, ERAS, EVENTS, LIFELINES, NOVELS, UNDATED } from './data';
 import type { Category, Certainty, Mode, NovelId, Reckoning } from './data/types';
 import { createDesert } from './scene/desert';
+import { WorldProps } from './scene/props';
 import { GoldenPath, createPathMesh, makeFrame } from './scene/path';
 import { TimelineLayer, type Layers } from './scene/timeline';
 import { World } from './scene/world';
@@ -34,6 +35,11 @@ interface State {
 const INPUT = { eras: ERAS, events: EVENTS, novels: NOVELS, lifelines: LIFELINES, contradictions: CONTRADICTIONS };
 const UP = new THREE.Vector3(0, 1, 0);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+/**
+ * The camera always watches from the same side of the path (the sunward view, looking into the
+ * dusk), so stepping between events tracks along the path instead of swinging across it.
+ */
+const CAMERA_SIDE = -1;
 const coarsePointer = window.matchMedia('(pointer: coarse)');
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 
@@ -111,8 +117,9 @@ export function createApp(): void {
   const world = new World($('#stage'));
   const path = new GoldenPath();
   const pathMesh = createPathMesh(path);
-  const desert = createDesert();
-  world.scene.add(desert.group, pathMesh.mesh);
+  const desert = createDesert(path);
+  const props = new WorldProps(path, desert, -CAMERA_SIDE);
+  world.scene.add(desert.group, pathMesh.mesh, props.group);
   const layer = new TimelineLayer(path, res, {
     onSelect: (id) => select(id),
     onHover: (id) => setHover(id),
@@ -121,7 +128,9 @@ export function createApp(): void {
 
   const scaleOf = (r: Resolved, mode: ScaleMode): Scale => (mode === 'story' ? r.narrative : r.linear);
   let current: Placement = placementFrom(res, scaleOf(res, state.scale));
-  let morph: { from: Placement; to: Placement; k: number; duration: number } | null = null;
+  let morph: { from: Placement; to: Placement; k: number; duration: number; w0: number; w1: number } | null = null;
+  /** 1 = story scale, 0 = true scale; set pieces sink away as it falls. */
+  let storyWeight = 1;
 
   // ── UI ────────────────────────────────────────────────────────────────────────────────────
   const panel = new Panel($('#panel'), {
@@ -137,6 +146,7 @@ export function createApp(): void {
   function applyPlacement(p: Placement): void {
     current = p;
     layer.layout(p);
+    props.layout(p, res);
     scrubber.layout(p, res);
     pathMesh.setBands(p.eras.map((t, i) => ({ t: i === 0 ? 0 : t, color: ERA_TONES[i % 2] })));
   }
@@ -144,12 +154,15 @@ export function createApp(): void {
 
   function startMorph(): void {
     const to = placementFrom(res, scaleOf(res, state.scale));
+    const w1 = state.scale === 'story' ? 1 : 0;
     if (reducedMotion.matches) {
       morph = null;
+      storyWeight = w1;
+      props.setStoryWeight(w1);
       applyPlacement(to);
       return;
     }
-    morph = { from: current, to, k: 0, duration: 1.4 };
+    morph = { from: current, to, k: 0, duration: 1.4, w0: storyWeight, w1 };
   }
 
   // ── Visible set & navigation ─────────────────────────────────────────────────────────────
@@ -180,30 +193,50 @@ export function createApp(): void {
   const tmpA = new THREE.Vector3();
   const tmpB = new THREE.Vector3();
 
+  const localFrame = makeFrame();
+
   function eventPose(id: string): { eye: THREE.Vector3; target: THREE.Vector3 } | null {
     const pos = layer.eventPosition(id, new THREE.Vector3());
     const t = layer.eventT(id);
     const ev = res.byId.get(id);
     if (!pos || t === null || !ev) return null;
     path.frameAt(t, frame);
-    const side = layer.eventSide(id);
     // Far enough back to see the neighbours on either side, not just the one light.
     // Portrait screens have a narrow horizontal view, so step back further.
     const aspect = world.width / world.height;
-    const d = (54 + ev.importance * 10) * (aspect < 1 ? Math.min(1 / aspect, 2) : 1);
-    const target = pos.clone().addScaledVector(UP, -3);
+    const d = (58 + ev.importance * 8) * (aspect < 1 ? Math.min(1 / aspect, 2) : 1);
+    const target = pos.clone().addScaledVector(UP, -1);
+
+    // Keep the viewer's own angle: express the current eye offset in the path's local frame
+    // (across, up, along) and carry it to the new spot. Only fall back to the default framing
+    // from far away (the overview) or from an extreme angle.
+    const offset = tmpA.copy(world.camera.position).sub(world.controls.target);
+    const dist = offset.length();
+    if (dist > d * 0.45 && dist < d * 2.6) {
+      path.frameAt(path.nearestT(world.controls.target), localFrame);
+      const across = offset.dot(localFrame.side);
+      const along = offset.dot(localFrame.tangent);
+      const up = Math.max(offset.y, d * 0.12);
+      const eye = target
+        .clone()
+        .addScaledVector(frame.side, across)
+        .addScaledVector(UP, up)
+        .addScaledVector(frame.tangent, along);
+      return { eye, target };
+    }
+    // Near eye level, so the horizon and the sky (heighliner, Shield Wall) stay in frame.
     const eye = target
       .clone()
-      .addScaledVector(frame.side, side * d * 0.8)
-      .addScaledVector(UP, d * 0.36)
-      .addScaledVector(frame.tangent, -d * 0.4);
+      .addScaledVector(frame.side, CAMERA_SIDE * d * 0.86)
+      .addScaledVector(UP, d * 0.2)
+      .addScaledVector(frame.tangent, -d * 0.2);
     return { eye, target };
   }
 
   function flyToEvent(id: string, done?: () => void): void {
     const pose = eventPose(id);
     if (!pose) return;
-    world.flyTo(pose.eye, pose.target, reducedMotion.matches ? 0.01 : 1.9, done);
+    world.flyTo(pose.eye, pose.target, reducedMotion.matches ? 0 : undefined, done);
   }
 
   function overviewPose(): { eye: THREE.Vector3; target: THREE.Vector3 } {
@@ -216,7 +249,7 @@ export function createApp(): void {
   function overview(): void {
     stopTour();
     const p = overviewPose();
-    world.flyTo(p.eye, p.target, reducedMotion.matches ? 0.01 : 2.2);
+    world.flyTo(p.eye, p.target, reducedMotion.matches ? 0 : 1.8);
   }
 
   function scrubTo(t: number, final: boolean): void {
@@ -226,12 +259,16 @@ export function createApp(): void {
     const offset = tmpA.copy(world.camera.position).sub(world.controls.target);
     // From far away, drop to a travelling height so scrubbing feels like walking the path.
     if (offset.length() > 260) {
-      offset.copy(frame.side).multiplyScalar(70).addScaledVector(UP, 48).addScaledVector(frame.tangent, -50);
-      world.flyTo(tmpB.copy(target).add(offset), target, 0.9);
+      offset
+        .copy(frame.side)
+        .multiplyScalar(CAMERA_SIDE * 74)
+        .addScaledVector(UP, 34)
+        .addScaledVector(frame.tangent, -16);
+      world.flyTo(tmpB.copy(target).add(offset), target, reducedMotion.matches ? 0 : 1.1);
       return;
     }
     if (final && !scrubber.isDragging && world.controls.target.distanceTo(target) > 40) {
-      world.flyTo(tmpB.copy(target).add(offset), target, 0.8);
+      world.flyTo(tmpB.copy(target).add(offset), target, reducedMotion.matches ? 0 : 0.7);
     } else {
       world.translate(tmpB.copy(target).sub(world.controls.target));
     }
@@ -704,7 +741,10 @@ export function createApp(): void {
       const sel = state.selected;
       const had = sel ? layer.eventPosition(sel, followPrev) : null;
       morph.k = Math.min(morph.k + dt / morph.duration, 1);
-      applyPlacement(blendPlacement(morph.from, morph.to, easeInOut(morph.k)));
+      const e = easeInOut(morph.k);
+      storyWeight = morph.w0 + (morph.w1 - morph.w0) * e;
+      props.setStoryWeight(storyWeight);
+      applyPlacement(blendPlacement(morph.from, morph.to, e));
       if (morph.k >= 1) morph = null;
       if (sel && had && layer.eventPosition(sel, followNext) && !world.isFlying()) {
         world.translate(followNext.sub(followPrev));
@@ -721,6 +761,7 @@ export function createApp(): void {
 
     const t = path.nearestT(world.controls.target);
     layer.update(world.camera, elapsed, world.width, world.height, blockedRects(), t);
+    props.update(elapsed, dt, t, world.height, world.pixelRatio);
     pathMesh.tick(elapsed);
     desert.tick(elapsed, world.controls.target, world.camera.position, world.pixelRatio);
 

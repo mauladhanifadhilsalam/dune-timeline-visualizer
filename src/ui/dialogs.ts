@@ -1,4 +1,5 @@
 import type { UndatedNote } from '../data/types';
+import { SET_PIECES } from '../scene/props/catalog';
 import type { Resolved } from '../timeline/model';
 import {
   CATEGORY_LABEL,
@@ -67,7 +68,7 @@ export function renderAbout(root: HTMLElement, res: Resolved, undated: UndatedNo
             ': reported by an in-universe source, such as the glossary, Irulan\'s histories or Leto II\'s journals. Herbert\'s narrators have agendas, and Irulan writes court propaganda.',
           ),
           h('li', null, 'Colour and the tag on each label give the novel it comes from. Size gives how much it matters.'),
-          h('li', null, 'Under the path: where each novel\'s story sits. Beside it, optionally: lifespans. Red arcs join statements of Herbert\'s that contradict each other.'),
+          h('li', null, 'Beside the path: where each novel\'s story sits. Hanging under it, optionally: lifespans. Red arcs join statements of Herbert\'s that contradict each other. The world changes with the timeline: worms, spice and cities appear where the story puts them, and the desert greens under Leto II.'),
         ),
         h(
           'ul',
@@ -118,6 +119,23 @@ export function renderAbout(root: HTMLElement, res: Resolved, undated: UndatedNo
           'p',
           null,
           `Story scale gives space to where things happen. True scale is honest about time. On true scale the Corrino Imperium takes ${fmtPct(facts.imperium)}% of the path and Leto II's reign ${fmtPct(facts.godEmperor)}%, while the narratives of all six novels together take ${fmtPct(facts.novels)}%. Most of Herbert's history is the gaps between his books.`,
+        ),
+      ),
+      h(
+        'section',
+        null,
+        h('h3', null, 'The world around the path'),
+        h(
+          'p',
+          null,
+          'Each set piece stands beside the event it belongs to and is only there in the eras the books put it in. Arrive and it rises out of the sand; leave and it sinks again. The ground follows the story too: green under Leto II, scorched glass after Rakis burns, and no sandworms during his reign, when he is the last of them.',
+        ),
+        h(
+          'ul',
+          { class: 'legend-list' },
+          ...[...new Map(SET_PIECES.map((p) => [p.kind === 'worm' ? 'worm' : p.note, p])).values()].map((p) =>
+            h('li', null, p.kind === 'worm' ? 'Sandworms around Dune, the battle, Rakis and Chapterhouse, surfacing in arcs and sounding again.' : p.note),
+          ),
         ),
       ),
       h(
