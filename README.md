@@ -34,6 +34,15 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - a crysknife
   - the spice blow that takes Liet-Kynes
   - thinking-machine wreckage from the Jihad
+  - Atreides ships lifting off under the green and black banner as Muad'Dib's Jihad sets out
+  - the Keep, seat of Alia's regency
+  - Leto II's Citadel inside the walled Sareer, the one desert he kept on a green Arrakis. The terrain is
+    masked back to sand inside its wall, and the label notes that his journals are later excavated at
+    Dar-es-Balat
+
+  The major landmarks carry a name in the scene, culled like every other label so they never pile up.
+  Banners are plain green and black: that is all Dune gives the Atreides banner. The hawk is the ducal crest,
+  not something Herbert puts on the flag.
 
   Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
   leave, so a snaking path never shows one era's props on another's horizon. The ground changes with the story:

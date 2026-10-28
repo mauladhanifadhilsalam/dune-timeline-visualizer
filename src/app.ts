@@ -118,13 +118,15 @@ export function createApp(): void {
   const path = new GoldenPath();
   const pathMesh = createPathMesh(path);
   const desert = createDesert(path);
-  const props = new WorldProps(path, desert, -CAMERA_SIDE);
-  world.scene.add(desert.group, pathMesh.mesh, props.group);
+  // The props need the layer's labels, so they are built once the layer exists (below).
+  world.scene.add(desert.group, pathMesh.mesh);
   const layer = new TimelineLayer(path, res, {
     onSelect: (id) => select(id),
     onHover: (id) => setHover(id),
   });
   world.scene.add(layer.group);
+  const props = new WorldProps(path, desert, -CAMERA_SIDE, (title, sub, isOn) => layer.addLandmark(title, sub, isOn));
+  world.scene.add(props.group);
 
   const scaleOf = (r: Resolved, mode: ScaleMode): Scale => (mode === 'story' ? r.narrative : r.linear);
   let current: Placement = placementFrom(res, scaleOf(res, state.scale));

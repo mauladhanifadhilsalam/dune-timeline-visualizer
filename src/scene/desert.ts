@@ -35,6 +35,9 @@ export function duneHeight(x: number, z: number): number {
  */
 const warp = (u: number) => 0.3 * u + 0.7 * u * u * u * u * u;
 
+/** How many flattened pads the terrain shader supports at once. */
+export const MAX_PADS = 4;
+
 /** A t-range on the path [rampIn0, rampIn1, rampOut0, rampOut1]; t outside [0, 1] disables it. */
 export type Band = [number, number, number, number];
 const OFF: Band = [2, 2, 3, 3];
@@ -59,8 +62,10 @@ const eco = {
   uGreenVis: { value: 0 },
   uScorchVis: { value: 0 },
   uScorch: { value: new THREE.Vector4(...OFF) },
-  uPads: { value: [new THREE.Vector4(), new THREE.Vector4()] },
-  uPadTint: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+  uPads: { value: Array.from({ length: MAX_PADS }, () => new THREE.Vector4()) },
+  uPadTint: { value: Array.from({ length: MAX_PADS }, () => new THREE.Vector4()) },
+  /** A circle kept as desert whatever the era (x, z, radius, amount): Leto II's Sareer. */
+  uDesert: { value: new THREE.Vector4() },
 };
 
 const ECO_COMMON = /* glsl */ `
@@ -68,7 +73,12 @@ const ECO_COMMON = /* glsl */ `
   uniform float uGreenVis;
   uniform vec4 uScorch;
   uniform float uScorchVis;
+  uniform vec4 uDesert;
   float ecoBand(vec4 r, float t) { return smoothstep(r.x, r.y, t) * (1.0 - smoothstep(r.z, r.w, t)); }
+  float desertMask(vec2 xz) {
+    if (uDesert.z <= 0.0) return 0.0;
+    return uDesert.w * (1.0 - smoothstep(uDesert.z - 14.0, uDesert.z + 4.0, length(xz - uDesert.xy)));
+  }
 `;
 
 function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
@@ -80,8 +90,8 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
       ${ECO_COMMON}
       attribute float aPathT;
       attribute float aPathDist;
-      uniform vec4 uPads[2];
-      uniform vec4 uPadTint[2];
+      uniform vec4 uPads[${MAX_PADS}];
+      uniform vec4 uPadTint[${MAX_PADS}];
       varying float vGreen;
       varying float vScorch;
       varying vec3 vPadCol;
@@ -95,18 +105,27 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
     .replace(
       '#include <beginnormal_vertex>',
       /* glsl */ `#include <beginnormal_vertex>
-      float pm0 = padMask(position.xz, uPads[0]);
-      float pm1 = padMask(position.xz, uPads[1]);
-      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), max(pm0, pm1)));`,
+      float pms[${MAX_PADS}];
+      float pmMax = 0.0;
+      for (int i = 0; i < ${MAX_PADS}; i++) {
+        pms[i] = padMask(position.xz, uPads[i]);
+        pmMax = max(pmMax, pms[i]);
+      }
+      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), pmMax));`,
     )
     .replace(
       '#include <begin_vertex>',
       /* glsl */ `#include <begin_vertex>
-      transformed.y = mix(transformed.y, uPads[0].w, pm0);
-      transformed.y = mix(transformed.y, uPads[1].w, pm1);
-      vPadA = uPadTint[0].a * pm0 + uPadTint[1].a * pm1;
-      vPadCol = uPadTint[0].rgb * uPadTint[0].a * pm0 + uPadTint[1].rgb * uPadTint[1].a * pm1;
+      vPadA = 0.0;
+      vPadCol = vec3(0.0);
+      for (int i = 0; i < ${MAX_PADS}; i++) {
+        transformed.y = mix(transformed.y, uPads[i].w, pms[i]);
+        vPadA += uPadTint[i].a * pms[i];
+        vPadCol += uPadTint[i].rgb * uPadTint[i].a * pms[i];
+      }
+      vPadA = min(vPadA, 1.0);
       vGreen = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(380.0, 720.0, aPathDist));
+      vGreen *= 1.0 - desertMask(position.xz);
       vScorch = uScorchVis * ecoBand(uScorch, aPathT) * (1.0 - smoothstep(180.0, 480.0, aPathDist));
       vXZ = position.xz;`,
     );
@@ -251,6 +270,8 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
         '#include <begin_vertex>',
         `#include <begin_vertex>
         float g = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(200.0, 330.0, aPathDist));
+        // No forest inside the Sareer.
+        g *= 1.0 - desertMask((instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz);
         transformed *= clamp(g * 1.5 - aSeed * 0.5, 0.0, 1.0);`,
       );
   };
@@ -507,8 +528,10 @@ export interface Desert {
   setWind: (on: boolean) => void;
   /** Where on the path (t) the ground is green and where it is scorched. */
   setEcology: (green: Band | null, scorch: Band | null) => void;
-  /** Up to two flattened pads (city, spice field). */
+  /** Up to MAX_PADS flattened pads (city, spice field, launch apron…). */
   setPads: (pads: Pad[]) => void;
+  /** A circle of ground kept as open desert, even where the era has turned it green. */
+  setDesertPatch: (patch: { x: number; z: number; radius: number; amount: number } | null) => void;
   /** 0..1: how thick the glowing spice motes hang in the air around the camera. */
   setSpice: (level: number) => void;
   /** 0..1 each: how much of the green and scorched bands show, given where the camera is in time. */
@@ -577,7 +600,7 @@ export function createDesert(path: GoldenPath): Desert {
       eco.uScorch.value.set(...(scorch ?? OFF));
     },
     setPads(pads) {
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < MAX_PADS; i++) {
         const p = pads[i];
         if (p) {
           eco.uPads.value[i].set(p.x, p.z, p.radius, p.y);
@@ -587,6 +610,10 @@ export function createDesert(path: GoldenPath): Desert {
           eco.uPadTint.value[i].set(0, 0, 0, 0);
         }
       }
+    },
+    setDesertPatch(p) {
+      if (p) eco.uDesert.value.set(p.x, p.z, p.radius, p.amount);
+      else eco.uDesert.value.set(0, 0, 0, 0);
     },
     setSpice(level) {
       spiceTarget = level;

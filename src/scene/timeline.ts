@@ -35,7 +35,7 @@ const LIFE_STEP = -1.5;
 /** Minimum path share a ribbon gets so one-year spans stay visible. */
 const MIN_SPAN_T = 0.005;
 
-type LabelKind = 'event' | 'era' | 'novel' | 'life' | 'conflict';
+type LabelKind = 'event' | 'era' | 'novel' | 'life' | 'conflict' | 'landmark';
 
 interface LabelEntry {
   obj: CSS2DObject;
@@ -385,6 +385,17 @@ export class TimelineLayer {
     return { entry, dateEl };
   }
 
+  /**
+   * A name for a set piece in the world (the Keep, a heighliner…). It joins the same culling as
+   * every other label, so it never piles onto an event's label; the caller positions the object.
+   */
+  addLandmark(title: string, sub: string | undefined, isOn: () => boolean): CSS2DObject {
+    const e = el('div', 'lbl lbl-landmark');
+    e.append(el('span', 'lbl-landmark-title', title));
+    if (sub) e.append(el('span', 'lbl-landmark-sub', sub));
+    return this.addLabel(e, 'landmark', 2, isOn, new THREE.Vector2(0.5, 1)).obj;
+  }
+
   private addLabel(
     e: HTMLElement,
     kind: LabelKind,
@@ -647,9 +658,14 @@ export class TimelineLayer {
                 ? 900
                 : l.kind === 'conflict'
                   ? 420
-                  : 240;
+                  : l.kind === 'landmark'
+                    ? 1300
+                    : 240;
         if (!isActive && d > maxD) want = false;
-        pri = isActive ? 1e6 : (l.kind === 'era' ? 4000 : l.kind === 'novel' ? 2500 : l.importance * 900) - d;
+        // Landmarks rank between major and saga-defining events: they name the scene, but an
+        // event's own label wins a collision with one.
+        const base = l.kind === 'era' ? 4000 : l.kind === 'novel' ? 2500 : l.kind === 'landmark' ? 2200 : l.importance * 900;
+        pri = isActive ? 1e6 : base - (l.kind === 'landmark' ? d * 0.6 : d);
       }
       if (!want) {
         this.setShown(l, false);

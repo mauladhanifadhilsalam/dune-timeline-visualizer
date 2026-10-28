@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import type { Resolved } from '../../timeline/model';
 import type { Placement } from '../../timeline/placement';
-import { duneHeight, type Band, type Desert, type Pad } from '../desert';
+import { MAX_PADS, duneHeight, type Band, type Desert, type Pad } from '../desert';
 import { GoldenPath, makeFrame } from '../path';
 import { Arrakeen } from './arrakeen';
+import { bannerClock } from './banner';
+import { SareerCitadel, buildKeep } from './citadels';
+import { JihadFleet } from './jihad-fleet';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
 import { Particles } from './particles';
@@ -22,7 +25,14 @@ interface Piece extends SetPiece {
   spot?: { along: number; lateral: number };
   /** Resting transform from the last layout, before presence and visibility are applied. */
   base?: { center: THREE.Vector3; quat: THREE.Quaternion };
+  /** Fits parts of the piece to the dunes once its place is known. */
+  fit?: (center: THREE.Vector3, quat: THREE.Quaternion) => void;
+  /** Its name over it in the scene. */
+  labelObj?: THREE.Object3D;
 }
+
+/** Makes a scene label that the timeline's label culling manages; the caller positions it. */
+export type Labeler = (title: string, sub: string | undefined, isOn: () => boolean) => THREE.Object3D;
 
 /** How thick the spice hangs in each era (by era id). Leto's green Arrakis has almost none. */
 const SPICE_BY_ERA: Record<string, number> = {
@@ -58,6 +68,18 @@ export class WorldProps {
   private readonly heighliners: Heighliner[] = [];
   private readonly city = new Arrakeen();
   private readonly harvester = new Harvester();
+  private readonly fleet = new JihadFleet();
+  private readonly citadel = new SareerCitadel();
+  private citadelPiece: Piece | null = null;
+  /** Lift-engine exhaust: hot, blue-white, short-lived. */
+  private readonly exhaust = new Particles({
+    capacity: 1600,
+    color: '#a9cfff',
+    intensity: 1.5,
+    additive: true,
+    gravity: -4,
+    drag: 2.2,
+  });
   private readonly dust = new Particles({ capacity: 2600, color: '#c8925c', gravity: 2.2, drag: 0.55 });
   private readonly spice = new Particles({
     capacity: 2200,
@@ -82,6 +104,7 @@ export class WorldProps {
     private readonly desert: Desert,
     /** +1 or -1: which side of the path (in its local frame) is the background. */
     private readonly background: number,
+    labeler?: Labeler,
   ) {
     let blow: Piece | null = null;
     for (const spec of SET_PIECES) {
@@ -115,6 +138,20 @@ export class WorldProps {
           piece.creature = new Sandworm(spec.worm!);
           this.group.add(piece.creature.group);
           break;
+        case 'jihad-fleet':
+          piece.object = this.fleet.group;
+          break;
+        case 'keep':
+          piece.object = buildKeep();
+          break;
+        case 'sareer-citadel':
+          piece.object = this.citadel.group;
+          piece.fit = (c, q) => this.citadel.fit(c, q);
+          this.citadelPiece = piece;
+          break;
+      }
+      if (spec.label && labeler) {
+        piece.labelObj = labeler(spec.label.title, spec.label.sub, () => this.amount(piece) > 0.6);
       }
       this.pieces.push(piece);
       if (piece.object) this.group.add(piece.object);
@@ -122,7 +159,7 @@ export class WorldProps {
     if (!blow) throw new Error('SET_PIECES needs a spice-blow');
     this.blow = blow;
 
-    this.group.add(this.dust.points, this.spice.points);
+    this.group.add(this.dust.points, this.spice.points, this.exhaust.points);
 
     // Path outline for clearance tests.
     const N = 500;
@@ -232,6 +269,7 @@ export class WorldProps {
         center.y += piece.lift ?? 0;
       }
       piece.base = { center, quat };
+      piece.fit?.(center, quat);
       if (piece === this.blow) this.blowAt.copy(center);
     }
     this.apply();
@@ -253,11 +291,11 @@ export class WorldProps {
         piece.creature.setPresence(k);
         continue;
       }
-      if (piece.pad && pads.length < 2 && k > 0.001) {
+      if (piece.pad && pads.length < MAX_PADS && k > 0.001) {
         pads.push({
           x: piece.base.center.x,
           z: piece.base.center.z,
-          radius: (piece.footprint[0]?.r ?? 20) * k,
+          radius: (piece.padRadius ?? piece.footprint[0]?.r ?? 20) * k,
           y: piece.base.center.y,
           tint: new THREE.Color(piece.pad.tint),
           amount: piece.pad.amount * k,
@@ -277,8 +315,18 @@ export class WorldProps {
         o.scale.setScalar(0.25 + 0.75 * k);
       }
       o.visible = k > 0.01;
+      if (piece.labelObj && piece.label) {
+        piece.labelObj.position.copy(o.position).y += piece.label.height * o.scale.y;
+      }
     }
     this.desert.setPads(pads);
+    const cp = this.citadelPiece;
+    const ck = cp?.base ? this.amount(cp) : 0;
+    this.desert.setDesertPatch(
+      cp?.base && ck > 0.001
+        ? { x: cp.base.center.x, z: cp.base.center.z, radius: (SareerCitadel.RADIUS + 10) * ck, amount: ck }
+        : null,
+    );
   }
 
   /**
@@ -342,9 +390,11 @@ export class WorldProps {
     }
     this.apply();
 
+    bannerClock.value = time;
     for (const h of this.heighliners) h.update(time);
     if (this.city.group.visible) this.city.update(time);
     this.harvester.update(time, dt, this.dust, this.spice);
+    this.fleet.update(time, dt, this.dust, this.exhaust);
     for (const piece of this.pieces) piece.creature?.update(dt, duneHeight, this.dust);
 
     // A spice blow where Liet-Kynes died: a pre-spice mass erupting from deep sand, every so often.
@@ -354,7 +404,7 @@ export class WorldProps {
       if (this.blowClock < 1.8) this.spiceBlow(dt);
     }
 
-    for (const ps of [this.dust, this.spice]) {
+    for (const ps of [this.dust, this.spice, this.exhaust]) {
       ps.setViewportHeight(viewportHeight, pixelRatio);
       ps.update(dt);
     }
