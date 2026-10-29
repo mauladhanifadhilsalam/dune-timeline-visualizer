@@ -12,6 +12,8 @@ import { blendPlacement, placementFrom, type Placement } from './timeline/placem
 import { invertScale, type Scale } from './timeline/scale';
 import { $, h } from './ui/dom';
 import { renderAbout, renderIndex } from './ui/dialogs';
+import { PRIMER } from './data/primer';
+import { primerSections } from './ui/primer';
 import { Panel } from './ui/panel';
 import { Scrubber } from './ui/scrubber';
 import { Search } from './ui/search';
@@ -732,6 +734,8 @@ export function createApp(): void {
     if (t.closest('input, textarea, select, [contenteditable="true"]')) return;
     if (aboutDlg.open || indexDlg.open) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Nothing to step through or tour until the desert is entered.
+    if (!entered) return;
     switch (e.key) {
       case 'ArrowRight':
       case 'ArrowLeft': {
@@ -787,28 +791,57 @@ export function createApp(): void {
   const labels = world.labelRenderer.domElement;
   labels.classList.add('is-muted');
 
-  function enter(): void {
+  /** Where the desert opens when no link names a moment: the birth of Paul Atreides. */
+  const START = 'paul-born';
+  let entered = false;
+
+  // The intro's second step: the world in brief for a newcomer, then a choice of how to go in.
+  const titleCard = $('#intro-title-card');
+  const primerCard = $('#intro-primer');
+  $('#primer-body').replaceChildren(
+    h('p', { class: 'intro-kicker' }, PRIMER.kicker),
+    h('h2', { class: 'primer-title', id: 'primer-title' }, PRIMER.title),
+    ...primerSections(),
+  );
+  function showPrimer(): void {
+    titleCard.hidden = true;
+    primerCard.hidden = false;
+    $('#btn-start-tour').focus();
+  }
+
+  /**
+   * Into the desert: at the moment a link names, on the guided tour from the beginning, or (by
+   * default) at Paul's birth to explore from there.
+   */
+  function enter(choice: { at?: string; tour?: boolean } = {}): void {
+    if (entered) return;
+    entered = true;
     labels.classList.remove('is-muted');
     intro.classList.add('is-gone');
     window.setTimeout(() => (intro.hidden = true), 700);
     world.controls.autoRotate = false;
-    if (initial && res.byId.has(initial)) {
-      select(initial);
-    } else {
+    const hint = () =>
       flashHint(
         coarsePointer.matches
           ? 'Tap any light, or ▶ for a guided tour.'
           : 'Click any light, press → to step through time, or Space for a guided tour.',
         6500,
       );
-    }
+    if (choice.at && res.byId.has(choice.at)) select(choice.at);
+    else if (choice.tour) {
+      startTour();
+      flashHint(coarsePointer.matches ? 'Tap anywhere to stop the tour.' : 'Click, drag or press Space to stop the tour.', 5000);
+    } else if (res.byId.has(START)) select(START, { done: hint });
+    else hint();
   }
-  $('#btn-enter').addEventListener('click', enter);
-  if (initial && res.byId.has(initial)) enter(); // deep links skip the intro
+  $('#btn-enter').addEventListener('click', showPrimer);
+  $('#btn-start-tour').addEventListener('click', () => enter({ tour: true }));
+  $('#btn-explore').addEventListener('click', () => enter());
+  if (initial && res.byId.has(initial)) enter({ at: initial }); // deep links skip the intro
   window.addEventListener('hashchange', () => {
     const id = location.hash.slice(1);
     if (id && id !== state.selected && res.byId.has(id)) {
-      if (!intro.hidden) enter();
+      if (!entered) enter({ at: id });
       else select(id);
     }
   });

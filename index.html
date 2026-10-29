@@ -74,7 +74,7 @@
       <div id="hint" class="hint" hidden></div>
 
       <div id="intro" class="intro">
-        <div class="intro-card">
+        <div class="intro-card" id="intro-title-card">
           <p class="intro-kicker">Frank Herbert · 1965–1985</p>
           <h2 class="intro-title">The Golden Path</h2>
           <p class="intro-lede">
@@ -84,6 +84,19 @@
           <button type="button" class="btn btn-primary" id="btn-enter">Enter the desert</button>
           <p class="intro-fine">Unofficial fan project. Frank Herbert's novels only.</p>
           <p id="intro-error" class="intro-error" hidden></p>
+        </div>
+        <div class="intro-card intro-primer" id="intro-primer" role="region" aria-labelledby="primer-title" hidden>
+          <div class="primer-body" id="primer-body"></div>
+          <div class="primer-actions">
+            <button type="button" class="btn btn-primary" id="btn-start-tour">
+              <span aria-hidden="true">▶</span> Take the guided tour
+            </button>
+            <button type="button" class="btn btn-quiet" id="btn-explore">Explore on my own</button>
+          </div>
+          <p class="primer-note">
+            The tour walks the great moments from the war on thinking machines to Chapterhouse; any click stops it.
+            Exploring starts you at the birth of Paul Atreides.
+          </p>
         </div>
       </div>
 

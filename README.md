@@ -15,6 +15,10 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
 
 ## What you're looking at
 
+- **The way in.** After the title, a short primer for newcomers: the spice, the balance of power and the
+  Great Convention, the Atreides–Harkonnen feud, and the desert (it is also at the top of the ⓘ dialog).
+  Then a choice: the guided tour from the very beginning, or exploring on your own from the birth of Paul
+  Atreides. A link to an event (`#jamis-duel`) skips all of it and goes straight there.
 - **The path.** One glowing curve over a desert at dusk, with nine eras marked by gates. Each light is a
   dated event, coloured and tagged by the novel it comes from.
   - **Solid orbs** happen on the page.

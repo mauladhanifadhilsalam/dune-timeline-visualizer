@@ -10,6 +10,7 @@ import {
   formatRange,
 } from '../timeline/format';
 import { h } from './dom';
+import { primerSections } from './primer';
 
 function share(res: Resolved, s0: number, s1: number): number {
   return ((s1 - s0) / (res.max - res.min)) * 100;
@@ -42,6 +43,7 @@ export function renderAbout(root: HTMLElement, res: Resolved, undated: UndatedNo
         h('h2', null, 'Reading the Golden Path'),
         h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: onClose }, '×'),
       ),
+      h('section', null, h('h3', null, 'The world of Dune, in brief'), ...primerSections('h4')),
       h(
         'section',
         null,
