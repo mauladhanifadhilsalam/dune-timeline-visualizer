@@ -19,6 +19,8 @@ export interface ProcessionOptions {
    * pilgrim's pace.
    */
   sandwalk?: boolean;
+  /** Something that goes at the head of the file, this far ahead of the first walker. */
+  leader?: { object: THREE.Object3D; ahead: number };
 }
 
 /**
@@ -49,9 +51,11 @@ export class Procession {
     ];
     for (const m of this.parts) m.frustumCulled = false;
     this.group.add(...this.parts);
+    if (o.leader) this.group.add(o.leader.object);
     this.curve = new THREE.CatmullRomCurve3(o.route.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
     this.length = this.curve.getLength();
   }
+
 
   fit(center: THREE.Vector3, quat: THREE.Quaternion): void {
     this.center = center.clone();
@@ -71,8 +75,9 @@ export class Procession {
     // The file is as long as the route plus itself, so there is always someone walking.
     const loop = L + count * spacing;
     const head = ((time / duration) * L) % loop;
-    for (let i = 0; i < count; i++) {
-      const s = head - i * spacing;
+    const leader = this.o.leader;
+    for (let i = leader ? -1 : 0; i < count; i++) {
+      const s = i < 0 ? head + leader!.ahead : head - i * spacing;
       const k = s / L;
       // Grows out of the heat haze at the start, fades into it at the end.
       const show = k <= 0 || k >= 1 ? 0 : THREE.MathUtils.smoothstep(k, 0, 0.06) * (1 - THREE.MathUtils.smoothstep(k, 0.92, 1));
@@ -80,8 +85,16 @@ export class Procession {
       this.curve.getPointAt(THREE.MathUtils.clamp(k + 0.01, 0, 1), this.ahead);
       const t = time * 3 + i * 1.7;
       const step = sandwalk ? Math.abs(Math.sin(t) * Math.sin(t * 0.37 + i)) : Math.abs(Math.sin(t));
+      const yaw = Math.atan2(this.ahead.x - p.x, this.ahead.z - p.z);
+      if (i < 0) {
+        const o = leader!.object;
+        o.position.set(p.x, this.groundAt(p.x, p.z), p.z);
+        o.rotation.set(0, yaw, 0);
+        o.scale.setScalar(Math.max(show, 0.001));
+        continue;
+      }
       this.dummy.position.set(p.x, this.groundAt(p.x, p.z) + step * 0.06 * scale, p.z);
-      this.dummy.rotation.set(0, Math.atan2(this.ahead.x - p.x, this.ahead.z - p.z), 0);
+      this.dummy.rotation.set(0, yaw, 0);
       this.dummy.scale.setScalar(Math.max(show, 0) * scale);
       this.dummy.updateMatrix();
       for (const m of this.parts) m.setMatrixAt(i, this.dummy.matrix);

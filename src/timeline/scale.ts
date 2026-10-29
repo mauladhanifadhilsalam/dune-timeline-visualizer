@@ -39,6 +39,12 @@ export interface NarrativeOptions {
    * versus by era (each era gets an equal slice, linear inside it). 1 = pure rank, 0 = pure era.
    */
   rankWeight?: number;
+  /**
+   * Relative length of the rank step that ends at a given moment (default 1 for all). A step
+   * weighted 2 is twice as long as an ordinary one, so a crowded stretch of the story can be given
+   * more path at the expense of the rest; order and monotonicity are unaffected.
+   */
+  stepWeight?: (year: Year) => number;
 }
 
 /**
@@ -53,7 +59,7 @@ export interface NarrativeOptions {
 export function narrativeScale(
   momentYears: Year[],
   eraBoundaries: Year[],
-  { rankWeight = 0.6 }: NarrativeOptions = {},
+  { rankWeight = 0.6, stepWeight = () => 1 }: NarrativeOptions = {},
 ): Scale {
   const bounds = [...new Set(eraBoundaries)].sort((a, b) => a - b);
   if (bounds.length < 2) throw new Error('narrativeScale needs at least two era boundaries');
@@ -64,9 +70,13 @@ export function narrativeScale(
   const moments = [...new Set([...momentYears, ...bounds])]
     .filter((y) => y >= min && y <= max)
     .sort((a, b) => a - b);
+  // Cumulative step lengths, normalised to end at 1.
+  const cum = [0];
+  for (let i = 1; i < moments.length; i++) cum.push(cum[i - 1] + Math.max(stepWeight(moments[i]), 1e-6));
+  const total = cum[cum.length - 1];
   const rank = piecewise(
     moments,
-    moments.map((_, i) => i / (moments.length - 1)),
+    cum.map((c) => c / total),
   );
   const era = piecewise(
     bounds,

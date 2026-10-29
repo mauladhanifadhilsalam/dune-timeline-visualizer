@@ -30,7 +30,7 @@ interface Ship {
 /** Running lights for ships that fly no house's colours. */
 const plainTrim = new THREE.MeshBasicMaterial({ color: new THREE.Color('#cfe3ff').multiplyScalar(1.3) });
 
-function buildShip(banner: boolean): Omit<Ship, 'slot' | 'heading' | 'phase'> {
+export function buildShip(banner: boolean): Omit<Ship, 'slot' | 'heading' | 'phase'> {
   const g = new THREE.Group();
   // Nose along +X: a tapered octagonal hull, a nose cone, a raised bridge and a dorsal fin.
   const hull = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 6.8, 34, 8).rotateZ(Math.PI / 2), hullMat);
@@ -194,6 +194,11 @@ export class Fleet {
     g.scale.setScalar(Math.max(THREE.MathUtils.smoothstep(s, 0, 1.5), 0.001));
     const thrust = s < DESCENT ? 0.7 + 0.3 * k : Math.max(1 - (s - DESCENT) / 3, 0);
     return { thrust, firing: s < DESCENT + 0.5 };
+  }
+
+  /** Back to the start, for a fleet inside another piece that hides it without hiding this group. */
+  rewind(): void {
+    this.seen = false;
   }
 
   update(time: number, dt: number, dust: Particles, exhaust: Particles): void {

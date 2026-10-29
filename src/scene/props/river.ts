@@ -41,6 +41,10 @@ export class IdahoRiver {
   private readonly water: THREE.Mesh;
   private readonly waterTime = { value: 0 };
   private readonly bridge = new THREE.Group();
+  /** The bridge as it stands until the ambush, and as the lasgun leaves it. */
+  private readonly whole = new THREE.Group();
+  private readonly cut = new THREE.Group();
+  private broken = true;
   private readonly body: THREE.InstancedMesh;
   private readonly trout: THREE.InstancedMesh;
   private readonly troutSeed: { angle: number; reach: number; offset: number; size: number }[] = [];
@@ -114,24 +118,28 @@ export class IdahoRiver {
     this.water.renderOrder = 1;
     this.group.add(this.water);
 
-    // The bridge across, its middle span cut away, one slab lying in the river.
+    // The bridge across: whole until the ambush; then its middle span cut away, one slab lying in
+    // the river.
     const stone = new THREE.MeshStandardMaterial({ color: '#9a8770', roughness: 0.85, flatShading: true });
-    const box = (w: number, h: number, d: number, x: number, y: number, z: number, rz = 0) => {
+    const box = (to: THREE.Group, w: number, h: number, d: number, x: number, y: number, z: number, rz = 0) => {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stone);
       b.position.set(x, y, z);
       b.rotation.z = rz;
-      this.bridge.add(b);
+      to.add(b);
     };
     const deckY = 14;
     for (const s of [-1, 1]) {
-      box(38, 3, 10, s * 28, deckY, 0); // deck
-      box(38, 2.2, 0.8, s * 28, deckY + 2.6, 4.6); // parapets
-      box(38, 2.2, 0.8, s * 28, deckY + 2.6, -4.6);
-      box(6, deckY + 8, 9, s * 19, deckY / 2 - 4, 0); // pier in the water
-      box(9, deckY + 10, 12, s * 47, deckY / 2 - 5, 0); // abutment on the bank
-      box(4, 3.4, 9, s * 10, deckY - 0.4, 0, s * 0.35); // broken, sagging end
+      box(this.bridge, 6, deckY + 8, 9, s * 19, deckY / 2 - 4, 0); // pier in the water
+      box(this.bridge, 9, deckY + 10, 12, s * 47, deckY / 2 - 5, 0); // abutment on the bank
+      box(this.cut, 38, 3, 10, s * 28, deckY, 0); // deck
+      box(this.cut, 38, 2.2, 0.8, s * 28, deckY + 2.6, 4.6); // parapets
+      box(this.cut, 38, 2.2, 0.8, s * 28, deckY + 2.6, -4.6);
+      box(this.cut, 4, 3.4, 9, s * 10, deckY - 0.4, 0, s * 0.35); // broken, sagging end
+      box(this.whole, 94, 2.2, 0.8, 0, deckY + 2.6, s * 4.6); // parapets
     }
-    box(17, 2.6, 10, 2, 0.2, 6, 0.42); // the cut span, fallen
+    box(this.whole, 94, 3, 10, 0, deckY, 0); // deck
+    box(this.cut, 17, 2.6, 10, 2, 0.2, 6, 0.42); // the cut span, fallen
+    this.bridge.add(this.whole, this.cut);
     this.group.add(this.bridge);
 
     // Leto II's body in the water below the bridge: a worm's rings, half under, thinning to the tail.
@@ -222,8 +230,17 @@ export class IdahoRiver {
     return best;
   }
 
+  /** Before Leto II's death the bridge stands whole and the river is empty; after, it is cut. */
+  setBroken(broken: boolean): void {
+    this.broken = broken;
+    this.whole.visible = !broken;
+    this.cut.visible = broken;
+    this.body.visible = broken;
+    this.trout.visible = broken;
+  }
+
   update(time: number): void {
-    if (!this.group.visible) return;
+    if (!this.group.visible || !this.broken) return;
     this.waterTime.value = time;
     const start = this.v.copy(this.bridgeAt).addScaledVector(this.flow, 20);
     for (let i = 0; i < TROUT; i++) {

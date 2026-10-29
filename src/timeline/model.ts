@@ -67,6 +67,14 @@ export interface Resolved {
   linear: Scale;
 }
 
+/**
+ * Extra room on the story scale, by era: each step between events there is this many times an
+ * ordinary one. Dune, and Messiah with Children of Dune, pack sixteen events each into two or three
+ * years and carry most of the scenery, so they are given the most path; Leto II's reign has few
+ * events but the two largest pieces, the Sareer and the Idaho River.
+ */
+const ROOM: Record<string, number> = { muaddib: 2, 'atreides-empire': 1.5, 'god-emperor': 1.5 };
+
 export function resolve(input: TimelineInput, reckoning: Reckoning): Resolved {
   const d = shiftFor(reckoning);
 
@@ -145,9 +153,15 @@ export function resolve(input: TimelineInput, reckoning: Reckoning): Resolved {
 
   const min = eras[0].s0;
   const max = eras[eras.length - 1].s1;
+  const eraAt = (year: number) => {
+    let i = eras.length - 1;
+    while (i > 0 && eras[i].s0 > year) i--;
+    return eras[i].id;
+  };
   const narrative = narrativeScale(
     events.flatMap((e) => (e.sEnd > e.s ? [e.s, e.sEnd] : [e.s])),
     eras.map((e) => e.s0).concat(max),
+    { stepWeight: (year) => ROOM[eraAt(year)] ?? 1 },
   );
   const linear = linearScale(min, max);
 

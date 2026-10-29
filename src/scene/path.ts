@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 
 /** Half-length of the path along world X. */
-export const PATH_HALF_X = 1000;
+export const PATH_HALF_X = 1350;
 /** Height the path floats at above the valley floor. */
 export const PATH_Y = 16;
 
 /** Ground-plane centreline of the path. The desert carves a valley along it. */
 export function pathZ(x: number): number {
-  return 150 * Math.sin((x / 720) * Math.PI * 2) + 46 * Math.sin((x / 255) * Math.PI * 2 + 1.3);
+  // Long, shallow bends: a path that doubles back tightly leaves pockets behind its events too
+  // narrow for the scenery that belongs there.
+  return 140 * Math.sin((x / 900) * Math.PI * 2) + 22 * Math.sin((x / 340) * Math.PI * 2 + 1.3);
 }
 
 function pathY(x: number): number {

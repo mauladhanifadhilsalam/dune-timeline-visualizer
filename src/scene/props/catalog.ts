@@ -1,5 +1,7 @@
 import { ARRAKEEN_FIELD } from './arrakeen';
 import { RIVER_FOOTPRINT } from './river';
+import { SIETCH_MOUTH } from './sietch';
+import { WEDDING_ROAD } from './wedding';
 import type { WormOptions } from './sandworm';
 
 /** A circle of ground a piece occupies, in its local frame (x along the path, -z away from it). */
@@ -32,7 +34,12 @@ export type PieceKind =
   | 'no-ship'
   | 'scattering-fleet'
   | 'atreides-landing'
-  | 'preacher';
+  | 'preacher'
+  | 'arrakeen-falls'
+  | 'sietch-raid'
+  | 'sandtrout-run'
+  | 'wedding'
+  | 'rakis-burning';
 
 export interface SetPiece {
   kind: PieceKind;
@@ -129,7 +136,9 @@ export const SET_PIECES: SetPiece[] = [
     kind: 'sareer-citadel',
     event: 'arrakis-green',
     eras: ['god-emperor'],
-    lateral: 320,
+    // Deep behind the path, leaving the ground in front to the river: a walled desert with a
+    // tower in it reads from far off.
+    lateral: 480,
     // The walled Sareer plus a margin for the wall towers.
     footprint: [{ x: 0, z: 0, r: 200 }],
     pad: { tint: '#b98a5a', amount: 0.15 },
@@ -262,6 +271,29 @@ export const SET_PIECES: SetPiece[] = [
   },
   {
     kind: 'worm',
+    event: 'chapterhouse-desert',
+    eras: ['return'],
+    lateral: 60,
+    footprint: [{ x: 0, z: 0, r: 48 }],
+    worm: { scale: 0.32, loopAlong: 45, loopAcross: 28, speed: 9, phase: 0 },
+    note: "The first young worms of Chapterhouse's new desert.",
+  },
+
+  // Life on the other half of the map, and in the empty ground of the late eras. Placed last, so
+  // they take what room is left.
+  {
+    kind: 'rakis-burning',
+    event: 'rakis-destroyed',
+    eras: ['return'],
+    moment: 1,
+    // Behind Chapterhouse's young worms: its smoke reads from far off.
+    lateral: 280,
+    footprint: [{ x: 0, z: 0, r: 120 }],
+    label: { title: 'Rakis burning', sub: 'the Honored Matres destroy it', height: 40 },
+    note: 'Rakis destroyed by the Honored Matres: the city of Keen in ruins and burning, their attack ships passing low over it, and the planet left fused glass.',
+  },
+  {
+    kind: 'worm',
     event: 'harkonnens-take-arrakis',
     eras: ['imperium', 'muaddib'],
     lateral: 260,
@@ -279,18 +311,6 @@ export const SET_PIECES: SetPiece[] = [
     worm: { scale: 0.9, loopAlong: 110, loopAcross: 60, speed: 20, phase: 200 },
     note: "The worms of Rakis, each carrying a pearl of Leto II's awareness, which Sheeana can walk among.",
   },
-  {
-    kind: 'worm',
-    event: 'chapterhouse-desert',
-    eras: ['return'],
-    lateral: 60,
-    footprint: [{ x: 0, z: 0, r: 48 }],
-    worm: { scale: 0.32, loopAlong: 45, loopAcross: 28, speed: 9, phase: 0 },
-    note: "The first young worms of Chapterhouse's new desert.",
-  },
-
-  // Life on the other half of the map, and in the empty ground of the late eras. Placed last, so
-  // they take what room is left.
   {
     kind: 'smuggler-crawler',
     event: 'water-of-life',
@@ -390,5 +410,47 @@ export const SET_PIECES: SetPiece[] = [
     padRadius: 92,
     label: { title: 'The Preacher', sub: "in the plaza before Alia's temple", height: 52 },
     note: "The Preacher: blind Paul come back out of the desert, led by a boy, preaching against the priesthood raised in his own name to a throng in the plaza before Alia's temple in Arrakeen, on whose steps he is killed.",
+  },
+  {
+    kind: 'arrakeen-falls',
+    event: 'fall-of-arrakeen',
+    eras: ['muaddib'],
+    moment: 1,
+    // In the city itself.
+    site: { in: 'arrakeen', x: 0, z: 0 },
+    lateral: 0,
+    footprint: [{ x: 0, z: 0, r: 150 }],
+    note: "The fall of House Atreides: Harkonnen troops and the Emperor's Sardaukar take Arrakeen in the night, fires burning through the city as their frigates come down on its field.",
+  },
+  {
+    kind: 'sietch-raid',
+    event: 'sietch-tabr-raid',
+    eras: ['muaddib'],
+    moment: 1,
+    // At the mouth of Sietch Tabr.
+    site: { in: 'sietch', x: SIETCH_MOUTH.x, z: SIETCH_MOUTH.z },
+    lateral: 0,
+    footprint: [{ x: 0, z: 0, r: 30 }],
+    note: "The Sardaukar raid on Sietch Tabr while its fighters are away: smoke pouring from the cave-mouth, and Paul's first son among the dead.",
+  },
+  {
+    kind: 'sandtrout-run',
+    event: 'sandtrout-skin',
+    eras: ['atreides-empire'],
+    moment: 1,
+    lateral: 125,
+    // His run, across the view.
+    footprint: [-150, -75, 0, 75, 150].map((x) => ({ x, z: -40, r: 26 })),
+    note: 'Leto II in the sandtrout skin: the living membrane gives him strength and speed no man has, and he runs across the open sand faster than any animal.',
+  },
+  {
+    kind: 'wedding',
+    event: 'hwi-noree',
+    eras: ['god-emperor'],
+    moment: 1,
+    lateral: 100,
+    // The road, across the view and away toward the river.
+    footprint: WEDDING_ROAD.map(([x, z]) => ({ x, z, r: 30 })),
+    note: "The wedding procession of Leto II and Hwi Noree: the Royal Cart at its head and his Fish Speakers behind, on the road to the bridge over the Idaho River, where it will be ambushed.",
   },
 ];

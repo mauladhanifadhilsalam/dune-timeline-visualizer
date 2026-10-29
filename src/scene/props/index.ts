@@ -17,6 +17,11 @@ import { NoShip } from './noship';
 import { Pilgrims } from './pilgrims';
 import { buildOutcrops, type Outcrop, type OutcropKind } from './rocks';
 import { Preacher } from './preacher';
+import { ArrakeenFalls } from './fall';
+import { Fires } from './fire';
+import { RakisBurning } from './rakis';
+import { SandtroutRun } from './runner';
+import { WEDDING_ROAD, WeddingProcession } from './wedding';
 import { Sietch } from './sietch';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
@@ -128,6 +133,24 @@ export class WorldProps {
     ],
   });
   private readonly preacher = new Preacher();
+  private readonly falls = new ArrakeenFalls();
+  /** The raid on Sietch Tabr: fire in its mouth and on the sand before it. */
+  private readonly raid = new Fires(
+    [
+      { x: 2, y: 3, z: 0, size: 8 },
+      { x: 16, y: 1, z: 9, size: 5 },
+      { x: 12, y: 1, z: -13, size: 5 },
+    ],
+    40,
+  );
+  private raidPiece: Piece | null = null;
+  private readonly run = new SandtroutRun();
+  private readonly wedding = new WeddingProcession();
+  private weddingPiece: Piece | null = null;
+  private weddingRoad: [THREE.Vector2, THREE.Vector2] | null = null;
+  private readonly rakis = new RakisBurning();
+  /** Where on the path the river's bridge is cut: halfway from the event before Leto's death. */
+  private riverBreakT = Infinity;
   /** Pieces whose parts sit inside a wrapper: their own groups never go invisible. */
   private readonly wrapped = new Map<THREE.Object3D, THREE.Object3D>();
   /** Every piece's footprint, all eras: the open desert's rock keeps clear of all of them. */
@@ -142,6 +165,8 @@ export class WorldProps {
     drag: 2.2,
   });
   private readonly dust = new Particles({ capacity: 2600, color: '#c8925c', gravity: 2.2, drag: 0.55 });
+  /** Smoke from fires: dark, rising (negative gravity), slow to clear. */
+  private readonly smoke = new Particles({ capacity: 1600, color: '#2e2620', gravity: -1.6, drag: 0.3 });
   private readonly spice = new Particles({
     capacity: 2200,
     color: '#ff7426',
@@ -262,6 +287,33 @@ export class WorldProps {
         case 'preacher':
           piece.object = this.preacher.group;
           break;
+        case 'arrakeen-falls':
+          piece.object = this.falls.group;
+          break;
+        case 'sietch-raid':
+          piece.object = this.raid.group;
+          this.raidPiece = piece;
+          break;
+        case 'sandtrout-run':
+          piece.object = this.run.group;
+          piece.fit = (c, q) => this.run.fit(c, q);
+          break;
+        case 'wedding':
+          piece.object = this.wedding.group;
+          piece.fit = (c, q) => {
+            this.wedding.fit(c, q);
+            // The forest is cleared along its road.
+            const end = (p: [number, number]) => {
+              const w = new THREE.Vector3(p[0], 0, p[1]).applyQuaternion(q).add(c);
+              return new THREE.Vector2(w.x, w.z);
+            };
+            this.weddingRoad = [end(WEDDING_ROAD[0]), end(WEDDING_ROAD[WEDDING_ROAD.length - 1])];
+          };
+          this.weddingPiece = piece;
+          break;
+        case 'rakis-burning':
+          piece.object = this.rakis.group;
+          break;
       }
       if (spec.label && labeler) {
         piece.labelObj = labeler(spec.label.title, spec.label.sub, () => this.amount(piece) > 0.6);
@@ -272,7 +324,7 @@ export class WorldProps {
     if (!blow) throw new Error('SET_PIECES needs a spice-blow');
     this.blow = blow;
 
-    this.group.add(this.dust.points, this.spice.points, this.exhaust.points);
+    this.group.add(this.dust.points, this.smoke.points, this.spice.points, this.exhaust.points);
 
     // Path outline for clearance tests.
     const N = 500;
@@ -301,6 +353,14 @@ export class WorldProps {
       z: center.z + along.z * c.x - away.z * c.z,
       r: c.r,
     }));
+  }
+
+  /** Which side of the nearest stretch of path a point is on: 1 the background, -1 the camera's. */
+  private sideOf(p: THREE.Vector3): number {
+    const f = this.path.frameAt(this.nearestPathT(p.x, p.z), this.frame);
+    const dx = p.x - f.pos.x;
+    const dz = p.z - f.pos.z;
+    return Math.sign(dx * f.side.x + dz * f.side.z) * this.background >= 0 ? 1 : -1;
   }
 
   /** The path's parameter at its nearest point to (x, z), as the camera's focus would find it. */
@@ -371,6 +431,9 @@ export class WorldProps {
             const a = (piece.along ?? 0) + slide;
             if (strict && side > 0 && (a < -VIEW_BEHIND * (lateral + VIEW_BACK) || a > VIEW_AHEAD * (lateral + VIEW_BACK))) continue;
             const center = pos.clone().addScaledVector(along, a).addScaledVector(away, lateral);
+            // Sliding along a straight line from the event can carry a piece over a bend of the
+            // path to its other side; it must stay on its own side of the nearest stretch.
+            if (this.sideOf(center) !== side) continue;
             if (strict && side < 0 && !piece.eras.includes(this.focusEra(this.nearestPathT(center.x, center.z)) ?? '')) continue;
             const bad = this.intrusion(this.worldCircles(center, along, away, piece.footprint), rivals, clearance);
             if (bad < best.bad) best = { along: a, lateral, bad };
@@ -488,6 +551,12 @@ export class WorldProps {
       piece.fit?.(center, quat);
       if (piece === this.blow) this.blowAt.copy(center);
     }
+    if (this.riverPiece) {
+      const ts = [...p.events.values()].map((e) => e.t).sort((a, b) => a - b);
+      const t = p.events.get(this.riverPiece.event)?.t;
+      const k = t === undefined ? -1 : ts.indexOf(t);
+      this.riverBreakT = k > 0 ? (ts[k - 1] + ts[k]) / 2 : -Infinity;
+    }
     // The Fremen ride from the breach at the Emperor's camp, wherever placement put the two.
     if (this.breachPiece?.base && this.campPiece?.base) this.breach.aim(this.campPiece.base.center);
     this.apply();
@@ -545,6 +614,7 @@ export class WorldProps {
     // The river's channel is cut only while it is in view: Rakis, later, is desert again.
     const rk = this.riverPiece ? this.amount(this.riverPiece) : 0;
     this.desert.setRiver(this.river.course && rk > 0.001 ? { ...this.river.course, amount: rk } : null);
+    this.desert.setRoad(this.weddingRoad, this.weddingPiece ? this.amount(this.weddingPiece) : 0);
   }
 
   /**
@@ -627,6 +697,14 @@ export class WorldProps {
     this.scattering.update(time + 7, dt, this.dust, this.exhaust);
     this.arrival.update(time, dt, this.dust, this.exhaust);
     this.preacher.update(time);
+    this.falls.update(time, dt, this.smoke, this.spice, this.dust, this.exhaust);
+    this.raid.update(time, dt, this.smoke, this.spice);
+    // The band of Fremen is not coming home while the sietch burns.
+    this.sietch.band.group.visible = !this.raidPiece || this.amount(this.raidPiece) < 0.5;
+    this.run.update(time, dt, this.dust);
+    this.wedding.update(time);
+    this.rakis.update(time, dt, this.smoke, this.spice, this.exhaust);
+    this.river.setBroken(focusT >= this.riverBreakT);
     for (const piece of this.pieces) piece.creature?.update(dt, duneHeight, this.dust);
 
     // A spice blow where Liet-Kynes died: a pre-spice mass erupting from deep sand, every so often.
@@ -636,7 +714,7 @@ export class WorldProps {
       if (this.blowClock < 1.8) this.spiceBlow(dt);
     }
 
-    for (const ps of [this.dust, this.spice, this.exhaust]) {
+    for (const ps of [this.dust, this.smoke, this.spice, this.exhaust]) {
       ps.setViewportHeight(viewportHeight, pixelRatio);
       ps.update(dt);
     }

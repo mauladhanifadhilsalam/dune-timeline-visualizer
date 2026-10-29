@@ -84,6 +84,8 @@ const eco = {
   uRiver: { value: new THREE.Vector4() },
   /** Bounding circle of the course (x, z, radius), so far-off vertices skip the distance loop. */
   uRiverBounds: { value: new THREE.Vector3() },
+  uRoad: { value: new THREE.Vector4() },
+  uRoadOn: { value: 0 },
 };
 
 const ECO_COMMON = /* glsl */ `
@@ -95,6 +97,15 @@ const ECO_COMMON = /* glsl */ `
   uniform vec2 uRiverPts[${RIVER_POINTS}];
   uniform vec4 uRiver;
   uniform vec3 uRiverBounds;
+  uniform vec4 uRoad;
+  uniform float uRoadOn;
+  // Distance to the road a procession walks (very large when there is none).
+  float roadDist(vec2 p) {
+    vec2 ba = uRoad.zw - uRoad.xy;
+    if (dot(ba, ba) < 1.0) return 1e9;
+    vec2 pa = p - uRoad.xy;
+    return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+  }
   float ecoBand(vec4 r, float t) { return smoothstep(r.x, r.y, t) * (1.0 - smoothstep(r.z, r.w, t)); }
   // Distance to the river's centre line (very large when there is no river, or far from it).
   float riverDist(vec2 p, float margin) {
@@ -322,6 +333,8 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
         // Nor along the river: a meadow opens either side of it, so the water shows from the path.
         float meadow = uRiver.x + uRiver.w + 80.0;
         g *= mix(1.0, smoothstep(meadow - 40.0, meadow, riverDist(treeXZ, meadow)), uRiver.z);
+        // Nor on a road through the forest.
+        g *= mix(1.0, smoothstep(22.0, 36.0, roadDist(treeXZ)), uRoadOn);
         transformed *= clamp(g * 1.5 - aSeed * 0.5, 0.0, 1.0);`,
       );
   };
@@ -584,6 +597,8 @@ export interface Desert {
   setDesertPatch: (patch: { x: number; z: number; radius: number; amount: number } | null) => void;
   /** A river channel cut through the terrain (and its forest). */
   setRiver: (river: RiverCourse | null) => void;
+  /** A straight road the forest is cleared along, from one end to the other, faded in by `amount`. */
+  setRoad: (road: [THREE.Vector2, THREE.Vector2] | null, amount: number) => void;
   /** 0..1: how thick the glowing spice motes hang in the air around the camera. */
   setSpice: (level: number) => void;
   /** 0..1 each: how much of the green and scorched bands show, given where the camera is in time. */
@@ -682,6 +697,10 @@ export function createDesert(path: GoldenPath): Desert {
       }
       eco.uRiver.value.set(r.halfWidth, r.level, r.amount, r.bank);
       eco.uRiverBounds.value.set(cx, cz, rad + r.halfWidth + r.bank + 10);
+    },
+    setRoad(road, amount) {
+      if (road) eco.uRoad.value.set(road[0].x, road[0].y, road[1].x, road[1].y);
+      eco.uRoadOn.value = road ? amount : 0;
     },
     setDesertPatch(p) {
       if (p) eco.uDesert.value.set(p.x, p.z, p.radius, p.amount);

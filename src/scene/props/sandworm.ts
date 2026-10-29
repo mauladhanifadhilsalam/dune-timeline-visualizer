@@ -121,6 +121,9 @@ export class Sandworm {
   private readonly pts: THREE.Vector3[] = Array.from({ length: SEGMENTS + 2 }, () => new THREE.Vector3());
   private readonly ground: number[] = new Array(SEGMENTS + 2).fill(0);
   private readonly rider: THREE.Group | null = null;
+  /** Wormsign: the mound of sand that travels over the head while it runs just under the surface. */
+  private readonly sign: THREE.Mesh;
+  private signDebt = 0;
 
   constructor(private readonly o: WormOptions) {
     const a = assets();
@@ -133,6 +136,12 @@ export class Sandworm {
     }
     this.group.add(this.body, this.head);
     this.s = o.phase;
+    this.sign = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: '#c48a55', roughness: 1 }),
+    );
+    this.sign.visible = false;
+    this.group.add(this.sign);
 
     if (o.ridden) {
       // The rider, drawn several times life size so it reads at all against a great maker, with
@@ -226,6 +235,22 @@ export class Sandworm {
     this.head.position.copy(h0).addScaledVector(h0.clone().sub(h1).normalize(), 0.3 * sc);
     this.head.lookAt(this.head.position.clone().add(h0.clone().sub(h1)));
     this.head.scale.setScalar(r0 * 1.02);
+
+    // Wormsign: while the head runs shallow under the sand, a mound rides over it, sand spilling off.
+    const depth = h0.y - this.ground[0];
+    const shallow = this.o.ridden ? 0 : THREE.MathUtils.smoothstep(depth, -r0 * 3.4, -r0 * 1.4) * (1 - THREE.MathUtils.smoothstep(depth, -r0 * 0.9, -r0 * 0.3));
+    this.sign.visible = shallow > 0.02;
+    if (this.sign.visible) {
+      this.sign.position.set(h0.x, this.ground[0] - r0 * 0.2, h0.z);
+      this.sign.rotation.set(0, Math.atan2(h0.x - h1.x, h0.z - h1.z), 0);
+      this.sign.scale.set(r0 * 1.5, r0 * 0.75 * shallow, r0 * 3);
+      this.signDebt += dt * 22 * shallow;
+      while (this.signDebt >= 1) {
+        this.signDebt -= 1;
+        const a = Math.random() * Math.PI * 2;
+        dust.emit(h0.x + Math.cos(a) * r0 * 1.4, this.ground[0] + 0.5, h0.z + Math.sin(a) * r0 * 1.4, Math.cos(a) * 4 * sc, (3 + Math.random() * 5) * sc, Math.sin(a) * 4 * sc, 1.6, (7 + Math.random() * 6) * sc);
+      }
+    }
 
     if (this.rider) {
       // Standing on the back a few rings behind the head, facing the way it travels.

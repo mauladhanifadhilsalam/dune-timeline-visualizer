@@ -29,7 +29,8 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - a Guild heighliner at the Guild's founding
   - Arrakeen and the Shield Wall, with ornithopters overhead and a landing field on the city's near edge.
     When House Atreides takes Arrakis, its frigates come down onto that field one after another, and the
-    Atreides banners go up the poles once the first is down
+    Atreides banners go up the poles once the first is down. When the house falls, fires burn through the city
+    under smoke, and the Harkonnen and Sardaukar frigates come down on the same field
   - a Harkonnen spice harvester and its carryall, on a spice field
   - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
   - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
@@ -37,7 +38,7 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
     Wall, that stretch of it slumps into rubble and boulders, the storm pours through the gap, and Fremen
     ride in behind it on five worms, a file of riders on each, to fall on the Emperor's landed frigates,
     where lasgun fire flickers. Then it sinks back into the sand and replays
-  - sandworms
+  - sandworms, with wormsign: a mound of sand riding over the head while it runs just under the surface
   - a crysknife
   - the spice blow that takes Liet-Kynes
   - thinking-machine wreckage from the Jihad
@@ -46,18 +47,23 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - blind Paul walking alone into the desert, his footprints filling in behind him
   - the Preacher, blind Paul come back, preaching from the steps of Alia's temple to a throng in the plaza,
     in silhouette against its lit door
+  - Leto II in the sandtrout skin, running across the sand faster than any animal, throwing up a long plume
   - Leto II's Citadel inside the walled Sareer, the one desert he kept on a green Arrakis. The terrain is
     masked back to sand inside its wall, and the label notes that his journals are later excavated at
     Dar-es-Balat
-  - the Idaho River, cut into the green, its bridge broken where Leto II fell, his body in the water and
-    the sandtrout leaving it
+  - Leto II and Hwi Noree's wedding procession setting out, his Royal Cart at its head and the Fish Speakers
+    behind, on a road cleared through the forest toward the river
+  - the Idaho River, cut into the green. Its bridge stands whole through his reign; from his death it is cut,
+    his body in the water and the sandtrout leaving it
   - ships of the Scattering lifting off after his death
-  - on Rakis in *Heretics*, pilgrims walking to Keen under a Priesthood ornithopter; on Chapterhouse, the
+  - on Rakis in *Heretics*, pilgrims walking to Keen under a Priesthood ornithopter, and then Keen in ruins and
+    burning as the Honored Matres destroy the planet, their attack ships passing over; on Chapterhouse, the
     no-ship on its landing field
 
   The other half of the map, on the camera's side of the path, has its own life, out beyond where the camera
   rides: smugglers working a spice field (under the Harkonnens and in *Dune*), Sietch Tabr in its rock with a
-  band of Fremen coming in off the sand in the sandwalk, a wild worm in *Children of Dune*, and the pilgrims.
+  band of Fremen coming in off the sand in the sandwalk (and, at the Sardaukar raid, smoke pouring from its mouth
+  instead), a wild worm in *Children of Dune*, and the pilgrims.
   Each stands on ground nearest a stretch of path in its own eras, so it shows whenever you look its way.
   Mesas, buttes and spines of rock are scattered over all the empty ground on both sides: rock outlasts every
   era, so it is always there. It keeps to the horizon behind the dioramas, never in front of them.
@@ -84,8 +90,10 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
 
 **Story scale / true scale.** A linear time axis spends about 60% of its length on the ten nearly-empty
 millennia of the Corrino Imperium and squeezes the narratives of all six novels into about 0.1%. Story scale
-blends event rank with era so dense periods open up while order is kept and long gaps still look long. Flip
-to true scale to see how little of Herbert's history his novels actually show.
+blends event rank with era so dense periods open up while order is kept and long gaps still look long. The
+crowded eras get more still: each step between events counts double in *Dune* and one and a half times in
+*Messiah*/*Children of Dune* and Leto II's reign, where the scenery is thickest. Flip to true scale to see
+how little of Herbert's history his novels actually show.
 
 **Reign from 10193 / 10196.** On the page, Shaddam IV is deposed at the Battle of Arrakeen (10193).
 Appendix IV says his reign ended with a regency in Irulan's name in 10196. Every later date in the novels is

@@ -8,6 +8,15 @@ const ROCK: Outcrop = { x: 0, z: 0, r: 72, height: 40, kind: 'mesa', angle: 0, s
 const SAND = -2;
 
 /**
+ * The cleft stands on the talus where it meets the sand, so it lies on the rock rather than
+ * floating off it: this is where, in the sietch's frame.
+ */
+export const SIETCH_MOUTH = (() => {
+  const yFrac = FOOT / (ROCK.height + FOOT);
+  return { x: outcropRadius(ROCK, 0, yFrac) + yFrac * ROCK.height * 0.04 + 0.5, y: SAND, z: 0 };
+})();
+
+/**
  * A sietch: a Fremen cave-warren in a rock outcrop. Its mouth is a dark cleft at the foot with the
  * glow of glowglobes deep inside, and a band of Fremen comes in off the sand in file, in the
  * sandwalk. Local frame as other pieces; the mouth faces +X, where the band comes from.
@@ -18,10 +27,8 @@ export class Sietch {
 
   constructor() {
     this.group.add(buildOutcrops([ROCK], () => SAND));
-    // The cleft stands on the talus where it meets the sand and leans back with the slope, so it
-    // lies on the rock rather than floating off it.
-    const yFrac = FOOT / (ROCK.height + FOOT);
-    const face = outcropRadius(ROCK, 0, yFrac) + yFrac * ROCK.height * 0.04;
+    // The cleft leans back with the slope.
+    const face = SIETCH_MOUTH.x - 0.5;
     const mouth = new THREE.Mesh(
       new THREE.CircleGeometry(9, 20, 0, Math.PI).scale(1, 1.5, 1).rotateX(-0.49).rotateY(Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: '#0b0806', side: THREE.DoubleSide }),

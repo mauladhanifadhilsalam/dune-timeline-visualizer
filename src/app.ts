@@ -307,8 +307,8 @@ export function createApp(): void {
   function overviewPose(): { eye: THREE.Vector3; target: THREE.Vector3 } {
     const portrait = world.width / world.height < 1;
     return portrait
-      ? { eye: new THREE.Vector3(-1650, 1250, 260), target: new THREE.Vector3(80, 0, 0) }
-      : { eye: new THREE.Vector3(0, 1000, 1280), target: new THREE.Vector3(0, 0, 40) };
+      ? { eye: new THREE.Vector3(-2150, 1550, 300), target: new THREE.Vector3(80, 0, 0) }
+      : { eye: new THREE.Vector3(0, 1250, 1600), target: new THREE.Vector3(0, 0, 40) };
   }
 
   function overview(): void {

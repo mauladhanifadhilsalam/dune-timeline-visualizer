@@ -42,6 +42,16 @@ describe('narrativeScale', () => {
   it('still shows a ten-thousand-year gap as bigger than a two-year one', () => {
     expect(s(10175) - s(0)).toBeGreaterThan(s(10193) - s(10191));
   });
+
+  it('gives a weighted stretch that many times the room, keeping order', () => {
+    // Pure rank, so step lengths are exactly the weights: the steps ending after year 2 count double.
+    const w = narrativeScale([1, 2, 3, 4], [0, 5], { rankWeight: 1, stepWeight: (y) => (y > 2 && y < 5 ? 2 : 1) });
+    const plain = w(2) - w(1);
+    expect(w(3) - w(2)).toBeCloseTo(2 * plain, 10);
+    expect(w(4) - w(3)).toBeCloseTo(2 * plain, 10);
+    expect(w(0)).toBe(0);
+    expect(w(5)).toBe(1);
+  });
 });
 
 describe('blend and invert', () => {

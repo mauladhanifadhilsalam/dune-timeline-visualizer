@@ -77,7 +77,7 @@ export class World {
     this.controls.dampingFactor = 0.08;
     this.controls.screenSpacePanning = false;
     this.controls.minDistance = 10;
-    this.controls.maxDistance = 2600;
+    this.controls.maxDistance = 3200;
     this.controls.maxPolarAngle = Math.PI * 0.47;
     this.controls.zoomSpeed = 0.9;
     this.controls.zoomToCursor = true;
