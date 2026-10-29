@@ -362,6 +362,11 @@ export class WorldProps {
     return Math.sign(dx * f.side.x + dz * f.side.z) * this.background >= 0 ? 1 : -1;
   }
 
+  /** Seconds a guided tour should stay at this event for its scenes to play out (0: none ask). */
+  tourDwell(eventId: string): number {
+    return Math.max(0, ...this.pieces.filter((p) => p.event === eventId).map((p) => p.dwell ?? 0));
+  }
+
   /** Where the camera should turn to look when this event is chosen, if a scene asks for it. */
   turnTarget(eventId: string): THREE.Vector3 | null {
     const piece = this.pieces.find((p) => p.event === eventId && p.turn && p.base);

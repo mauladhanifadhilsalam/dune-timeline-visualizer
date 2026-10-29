@@ -11,7 +11,7 @@ const SCALE = 0.85;
 const R0 = 6.2 * SCALE;
 const SPACING = 4.6 * SCALE;
 /** Seconds from a worm setting off to reaching the camp, whatever the distance. */
-const RIDE = 13;
+export const RIDE = 13;
 /** How far into its route a worm takes to rise out of the sand. */
 const EMERGE = 45;
 

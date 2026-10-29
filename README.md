@@ -44,7 +44,9 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
     whole, even while it is in view from the raid on Sietch Tabr): the family atomics flash against the Shield
     Wall, that stretch of it slumps into rubble and boulders, the storm pours through the gap, and Fremen
     ride in behind it on five worms, a file of riders on each, to fall on the Emperor's landed frigates,
-    where lasgun fire flickers. Then it sinks back into the sand and replays
+    where lasgun fire flickers. Then it sinks back into the sand and replays. The guided tour stays until the
+    charge has struck the camp (about 23 seconds), counted in the scene's own time so a slow device still sees
+    it through
   - sandworms, with wormsign: a mound of sand riding over the head while it runs just under the surface
   - a crysknife
   - the spice blow that takes Liet-Kynes

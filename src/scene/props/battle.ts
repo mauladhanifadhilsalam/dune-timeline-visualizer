@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { duneHeight } from '../desert';
 import { haloTexture } from '../halo';
-import { WormCharge } from './charge';
+import { RIDE, WormCharge } from './charge';
 import { CAMP_RING } from './heighliner';
 import type { Particles } from './particles';
 import { ROCK, SCORCHED, buildPlug, buildRidge, ridgeAt, type RidgeOptions } from './ridge';
@@ -17,6 +17,13 @@ const RESET = 26.5;
 const WORMS = 5;
 /** Lanes through the breach, one per worm, across the gap. */
 const LANES = [-24, -12, 0, 12, 24];
+/** When a lane's worm sets off, after the first: the middle leads, the flanks follow. */
+const setsOff = (lane: number) => (Math.abs(lane) / 12) * 0.9 + (lane < 0 ? 0.45 : 0);
+/**
+ * Seconds from the camera's arrival until the last worm has broken into the camp, and a few
+ * seconds of fighting after: how long a guided tour must stay to see the battle through.
+ */
+export const BATTLE_SEEN = CHARGE + Math.max(...LANES.map(setsOff)) + RIDE + 3;
 const DEBRIS = 80;
 const GRAVITY = 32;
 
@@ -193,7 +200,7 @@ export class ShieldWallBreach {
           ],
           strikeAt: 5,
           // The middle lane leads; the others follow out to the flanks.
-          start: (Math.abs(lane) / 12) * 0.9 + (lane < 0 ? 0.45 : 0),
+          start: setsOff(lane),
         };
       }),
     );

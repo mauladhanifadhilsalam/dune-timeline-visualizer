@@ -445,7 +445,11 @@ export function createApp(): void {
   window.addEventListener('resize', updateViewOffset);
 
   // ── Tour ────────────────────────────────────────────────────────────────────────────────
-  let tourTimer = 0;
+  /**
+   * When the tour moves on, in the scene's own time (the frame loop's `elapsed`), not the wall
+   * clock: on a slow device the scenes run slower too, and a timer would leave a battle halfway.
+   */
+  let tourAt: number | null = null;
   const tourBtn = $('#btn-tour');
   /** The era a tour begins in when no moment is chosen: The Coming of Muad'Dib, Dune's own. */
   const TOUR_FROM = 'muaddib';
@@ -457,7 +461,7 @@ export function createApp(): void {
   function stopTour(): void {
     if (!state.touring) return;
     state.touring = false;
-    window.clearTimeout(tourTimer);
+    tourAt = null;
     tourBtn.setAttribute('aria-pressed', 'false');
   }
   function tourStep(): void {
@@ -475,7 +479,9 @@ export function createApp(): void {
     }
     select(next.id, {
       done: () => {
-        if (state.touring) tourTimer = window.setTimeout(tourStep, reducedMotion.matches ? 9000 : 6500);
+        // Long enough to read the card, or for the event's scene to play through, whichever is longer.
+        const stay = Math.max(reducedMotion.matches ? 9 : 6.5, props.tourDwell(next.id));
+        if (state.touring) tourAt = elapsed + stay;
       },
     });
   }
@@ -891,6 +897,10 @@ export function createApp(): void {
     const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1);
     last = now;
     elapsed += dt;
+    if (state.touring && tourAt !== null && elapsed >= tourAt) {
+      tourAt = null;
+      tourStep();
+    }
 
     if (morph) {
       // Keep the selected marker in frame while everything slides.

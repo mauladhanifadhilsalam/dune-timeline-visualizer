@@ -1,4 +1,5 @@
 import { ARRAKEEN_FIELD } from './arrakeen';
+import { BATTLE_SEEN } from './battle';
 import { RIVER_FOOTPRINT } from './river';
 import { SIETCH_MOUTH } from './sietch';
 import type { WormOptions } from './sandworm';
@@ -65,6 +66,11 @@ export interface SetPiece {
    * would have behind it (one on the camera's side of the path). The next event turns back.
    */
   turn?: boolean;
+  /**
+   * A scene that plays out from the viewer's arrival: the seconds a guided tour stays at its event,
+   * so it is seen through rather than left halfway.
+   */
+  dwell?: number;
   /** Preferred distance into the background; placement may push it further or slide it along. */
   lateral: number;
   /**
@@ -210,6 +216,8 @@ export const SET_PIECES: SetPiece[] = [
     event: 'battle-of-arrakeen',
     eras: ['muaddib'],
     moment: 1,
+    // The tour stays until the Fremen have broken into the Emperor's camp.
+    dwell: BATTLE_SEEN,
     lateral: 360,
     footprint: [-200, -100, 0, 100, 200].map((x) => ({ x, z: 0, r: 70 })),
     label: { title: 'The Shield Wall', sub: 'breached by family atomics', height: 70 },
