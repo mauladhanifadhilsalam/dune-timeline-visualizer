@@ -61,6 +61,11 @@ export interface SetPiece {
    * of this kind, at this offset, and is not placed. Its footprint is the ground it uses there.
    */
   site?: { in: PieceKind; x: number; z: number };
+  /**
+   * The camera turns to face it when its event is chosen, for a scene the event's usual view
+   * would have behind it (one on the camera's side of the path). The next event turns back.
+   */
+  turn?: boolean;
   /** Preferred distance into the background; placement may push it further or slide it along. */
   lateral: number;
   /**
@@ -427,8 +432,9 @@ export const SET_PIECES: SetPiece[] = [
     event: 'sietch-tabr-raid',
     eras: ['muaddib'],
     moment: 1,
-    // At the mouth of Sietch Tabr.
+    // At the mouth of Sietch Tabr, on the camera's side of the path: the camera turns round to it.
     site: { in: 'sietch', x: SIETCH_MOUTH.x, z: SIETCH_MOUTH.z },
+    turn: true,
     lateral: 0,
     footprint: [{ x: 0, z: 0, r: 30 }],
     note: "The Sardaukar raid on Sietch Tabr while its fighters are away: smoke pouring from the cave-mouth, and Paul's first son among the dead.",

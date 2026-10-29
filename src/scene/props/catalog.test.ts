@@ -46,6 +46,14 @@ describe('set pieces', () => {
     }
   });
 
+  it('turn the camera only for scenes on its own side of the path', () => {
+    // Anywhere else the event's usual view already faces the scene, and turning would face away.
+    for (const p of SET_PIECES.filter((x) => x.turn)) {
+      const host = p.site ? SET_PIECES.find((h) => h.kind === p.site!.in) : p;
+      expect(host?.side, p.kind).toBe('near');
+    }
+  });
+
   it('give every worm its swimming parameters', () => {
     for (const p of SET_PIECES.filter((x) => x.kind === 'worm')) expect(p.worm).toBeDefined();
   });

@@ -197,6 +197,12 @@ export function createApp(): void {
 
   const localFrame = makeFrame();
 
+  /**
+   * The viewer's angle (eye offset in the path's local frame) from before the camera turned round
+   * to a scene on its own side of the path; the next event restores it.
+   */
+  let beforeTurn: Local | null = null;
+
   function eventPose(id: string): { eye: THREE.Vector3; target: THREE.Vector3 } | null {
     const pos = layer.eventPosition(id, new THREE.Vector3());
     const t = layer.eventT(id);
@@ -208,6 +214,26 @@ export function createApp(): void {
     const aspect = world.width / world.height;
     const d = (58 + ev.importance * 8) * (aspect < 1 ? Math.min(1 / aspect, 2) : 1);
     const target = pos.clone().addScaledVector(UP, -1);
+
+    // A scene on the camera's own side of the path: turn round over the path and look back across
+    // the event's light at it, low enough that it and the sky above it are in frame. The event
+    // stays the focus, so the era and the scrubber do not change.
+    const scene = props.turnTarget(id);
+    if (scene) {
+      if (!beforeTurn) {
+        path.frameAt(path.nearestT(world.controls.target), localFrame);
+        beforeTurn = toLocal(tmpA.copy(world.camera.position).sub(world.controls.target), localFrame);
+      }
+      const away = tmpB.copy(target).sub(scene).setY(0).normalize();
+      const eye = target.clone().addScaledVector(away, d * 1.3).addScaledVector(UP, d * 0.28);
+      return { eye, target };
+    }
+    // Leaving such a scene: back to the angle from before the turn.
+    if (beforeTurn) {
+      const eye = target.clone().add(fromLocal(beforeTurn, frame, tmpA));
+      beforeTurn = null;
+      return { eye, target };
+    }
 
     // Keep the viewer's own angle: express the current eye offset in the path's local frame
     // (across, up, along) and carry it to the new spot. Only fall back to the default framing
@@ -252,6 +278,21 @@ export function createApp(): void {
     a[1] + (b[1] - a[1]) * k,
     a[2] + (b[2] - a[2]) * k,
   ];
+  /**
+   * Blend two views (eye offsets from the target) as an orbit: bearing round the target, distance
+   * and height each eased on their own. For two views at one bearing this is the same as a straight
+   * blend; for a turn it swings round the target instead of cutting through it.
+   */
+  const lerpView = (a: Local, b: Local, k: number): Local => {
+    const ra = Math.hypot(a[0], a[2]);
+    const rb = Math.hypot(b[0], b[2]);
+    const aa = Math.atan2(a[2], a[0]);
+    let db = Math.atan2(b[2], b[0]) - aa;
+    db = Math.atan2(Math.sin(db), Math.cos(db)); // the short way round
+    const r = ra + (rb - ra) * k;
+    const bearing = aa + db * k;
+    return [Math.cos(bearing) * r, a[1] + (b[1] - a[1]) * k, Math.sin(bearing) * r];
+  };
 
   /**
    * Travel along the golden path to moment t1, ending at the given target and eye. The camera
@@ -288,7 +329,7 @@ export function createApp(): void {
       (k, eye, target) => {
         path.frameAt(t0 + (t1 - t0) * k, f);
         fromLocal(lerpLocal(aim0, aim1, k), f, target).add(f.pos);
-        const view = lerpLocal(view0, view1, k);
+        const view = lerpView(view0, view1, k);
         const s = 1 + pullBack * Math.sin(Math.PI * k);
         eye.copy(target).add(fromLocal([view[0] * s, view[1] * s, view[2] * s], f, off));
       },

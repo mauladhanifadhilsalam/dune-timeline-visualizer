@@ -63,7 +63,8 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   The other half of the map, on the camera's side of the path, has its own life, out beyond where the camera
   rides: smugglers working a spice field (under the Harkonnens and in *Dune*), Sietch Tabr in its rock with a
   band of Fremen coming in off the sand in the sandwalk (and, at the Sardaukar raid, smoke pouring from its mouth
-  instead), a wild worm in *Children of Dune*, and the pilgrims.
+  instead: the camera swings round over the path to look back at it, and turns back at the next event), a wild
+  worm in *Children of Dune*, and the pilgrims.
   Each stands on ground nearest a stretch of path in its own eras, so it shows whenever you look its way.
   Mesas, buttes and spines of rock are scattered over all the empty ground on both sides: rock outlasts every
   era, so it is always there. It keeps to the horizon behind the dioramas, never in front of them.

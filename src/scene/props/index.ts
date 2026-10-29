@@ -363,6 +363,12 @@ export class WorldProps {
     return Math.sign(dx * f.side.x + dz * f.side.z) * this.background >= 0 ? 1 : -1;
   }
 
+  /** Where the camera should turn to look when this event is chosen, if a scene asks for it. */
+  turnTarget(eventId: string): THREE.Vector3 | null {
+    const piece = this.pieces.find((p) => p.event === eventId && p.turn && p.base);
+    return piece?.base ? piece.base.center.clone() : null;
+  }
+
   /** The path's parameter at its nearest point to (x, z), as the camera's focus would find it. */
   private nearestPathT(x: number, z: number): number {
     const P = this.pathXZ;
