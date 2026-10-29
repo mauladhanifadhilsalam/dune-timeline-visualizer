@@ -47,6 +47,16 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
     Dar-es-Balat
   - the Idaho River, cut into the green, its bridge broken where Leto II fell, his body in the water and
     the sandtrout leaving it
+  - ships of the Scattering lifting off after his death
+  - on Rakis in *Heretics*, pilgrims walking to Keen under a Priesthood ornithopter; on Chapterhouse, the
+    no-ship on its landing field
+
+  The other half of the map, on the camera's side of the path, has its own life, out beyond where the camera
+  rides: smugglers working a spice field (under the Harkonnens and in *Dune*), Sietch Tabr in its rock with a
+  band of Fremen coming in off the sand in the sandwalk, a wild worm in *Children of Dune*, and the pilgrims.
+  Each stands on ground nearest a stretch of path in its own eras, so it shows whenever you look its way.
+  Mesas, buttes and spines of rock are scattered over all the empty ground on both sides: rock outlasts every
+  era, so it is always there. It keeps to the horizon behind the dioramas, never in front of them.
 
   The major landmarks carry a name in the scene, culled like every other label so they never pile up.
   Banners are plain green and black: that is all Dune gives the Atreides banner. The hawk is the ducal crest,
@@ -123,12 +133,12 @@ src/
   scene/props/   set pieces: catalog (what stands where and when), placement solver, heighliner,
                  Arrakeen, harvester, sandworm, crysknife, wreckage, storm, Shield Wall and the
                  Battle of Arrakeen (collapse, worm charge), thumper, the walk, the Idaho River,
-                 particles
+                 fleets, sietch, processions, the no-ship, rock outcrops, particles
   ui/            panel, scrubber, search, about/index dialogs
 ```
 
 To add a set piece, add an entry to `src/scene/props/catalog.ts` with its event, eras and footprint (and
-`moment` for a scene that should only show near its event). Placement slides it along and away from its event
+`moment` for a scene that should only show near its event, `side: 'near'` for one on the camera's side). Placement slides it along and away from its event
 until it clears the path and the other pieces it can be on screen with, trying first only spots inside the
 frame that event opens on. `catalog.test.ts`
 checks that its event and eras exist and that it shows in its own event's era.

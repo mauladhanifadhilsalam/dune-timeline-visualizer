@@ -2,16 +2,21 @@ import * as THREE from 'three';
 import type { Resolved } from '../../timeline/model';
 import type { Placement } from '../../timeline/placement';
 import { MAX_PADS, duneHeight, type Band, type Desert, type Pad } from '../desert';
+import { rng } from '../noise';
 import { GoldenPath, makeFrame } from '../path';
 import { Arrakeen } from './arrakeen';
 import { bannerClock } from './banner';
 import { SareerCitadel, buildKeep } from './citadels';
-import { JihadFleet } from './jihad-fleet';
+import { Fleet } from './fleet';
 import { ShieldWallBreach } from './battle';
 import { IdahoRiver } from './river';
 import { CoriolisStorm } from './storm';
 import { Thumper } from './thumper';
 import { DesertWalk } from './walk';
+import { NoShip } from './noship';
+import { Pilgrims } from './pilgrims';
+import { buildOutcrops, type Outcrop, type OutcropKind } from './rocks';
+import { Sietch } from './sietch';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
 import { Particles } from './particles';
@@ -58,6 +63,11 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** Ground left free around the path, so no piece stands on another era's stretch of it. */
 const PATH_CLEARANCE = 26;
 /**
+ * The same on the camera's side of the path, where the camera rides about 60 out and can be
+ * pulled back further: anything standing there keeps well clear of it.
+ */
+const CAMERA_CLEARANCE = 110;
+/**
  * The frame an event opens on, as a range of along/lateral ratios: the camera stands about 60
  * units back across the path, a little behind the event, so it looks slightly ahead along it.
  */
@@ -83,7 +93,7 @@ export class WorldProps {
   private readonly heighliners: Heighliner[] = [];
   private readonly city = new Arrakeen();
   private readonly harvester = new Harvester();
-  private readonly fleet = new JihadFleet();
+  private readonly fleet = new Fleet({ banners: true });
   private readonly citadel = new SareerCitadel();
   private citadelPiece: Piece | null = null;
   private readonly storm = new CoriolisStorm();
@@ -94,6 +104,15 @@ export class WorldProps {
   private readonly walk = new DesertWalk();
   private readonly river = new IdahoRiver();
   private riverPiece: Piece | null = null;
+  private readonly smugglers = new Harvester({ carryall: false, paint: '#7b5434' });
+  private readonly sietch = new Sietch();
+  private readonly pilgrims = new Pilgrims();
+  private readonly noShip = new NoShip();
+  private readonly scattering = new Fleet({ banners: false });
+  /** Pieces whose parts sit inside a wrapper: their own groups never go invisible. */
+  private readonly wrapped = new Map<THREE.Object3D, THREE.Object3D>();
+  /** Every piece's footprint, all eras: the open desert's rock keeps clear of all of them. */
+  private footprints: Circle[] = [];
   /** Lift-engine exhaust: hot, blue-white, short-lived. */
   private readonly exhaust = new Particles({
     capacity: 1600,
@@ -184,6 +203,7 @@ export class WorldProps {
         case 'thumper':
           // The thumper stands at the near edge of the loop the maker it called is swimming.
           piece.object = new THREE.Group().add(this.thumper.group);
+          this.wrapped.set(this.thumper.group, piece.object);
           this.thumper.group.position.z = (spec.worm?.loopAcross ?? 0) + 22;
           piece.creature = new Sandworm(spec.worm!);
           this.group.add(piece.creature.group);
@@ -196,6 +216,26 @@ export class WorldProps {
           piece.object = this.river.group;
           piece.fit = (c, q) => this.river.fit(c, q);
           this.riverPiece = piece;
+          break;
+        case 'smuggler-crawler':
+          // A smaller crawler than the Harkonnens', on a smaller field.
+          piece.object = new THREE.Group().add(this.smugglers.group);
+          this.smugglers.group.scale.setScalar(0.7);
+          this.wrapped.set(this.smugglers.group, piece.object);
+          break;
+        case 'sietch':
+          piece.object = this.sietch.group;
+          piece.fit = (c, q) => this.sietch.fit(c, q);
+          break;
+        case 'pilgrims':
+          piece.object = this.pilgrims.group;
+          piece.fit = (c, q) => this.pilgrims.fit(c, q);
+          break;
+        case 'no-ship':
+          piece.object = this.noShip.group;
+          break;
+        case 'scattering-fleet':
+          piece.object = this.scattering.group;
           break;
       }
       if (spec.label && labeler) {
@@ -238,12 +278,27 @@ export class WorldProps {
     }));
   }
 
+  /** The path's parameter at its nearest point to (x, z), as the camera's focus would find it. */
+  private nearestPathT(x: number, z: number): number {
+    const P = this.pathXZ;
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < P.length; i += 2) {
+      const d = (P[i] - x) ** 2 + (P[i + 1] - z) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = i / 2;
+      }
+    }
+    return best / (P.length / 2 - 1);
+  }
+
   /** How badly a set of circles intrudes on the path or on pieces already placed (0 = clear). */
-  private intrusion(circles: Circle[], placed: readonly Circle[]): number {
+  private intrusion(circles: Circle[], placed: readonly Circle[], clearance = PATH_CLEARANCE): number {
     let worst = 0;
     const P = this.pathXZ;
     for (const c of circles) {
-      const need = c.r + PATH_CLEARANCE;
+      const need = c.r + clearance;
       for (let i = 0; i < P.length; i += 2) {
         const d = Math.hypot(P[i] - c.x, P[i + 1] - c.z);
         if (d < need) worst = Math.max(worst, need - d);
@@ -276,15 +331,23 @@ export class WorldProps {
       const rivals = placed
         .filter((o) => o.eras.some((e) => piece.eras.includes(e)) && meet(o.window, piece.window))
         .flatMap((o) => o.circles);
-      let best = { along: piece.along ?? 0, lateral: piece.lateral, bad: Infinity };
-      search: for (const inView of [true, false]) {
+      // A piece on the camera's side stands out of every event's frame, and well clear of the camera.
+      const side = piece.side === 'near' ? -1 : 1;
+      const clearance = side < 0 ? CAMERA_CLEARANCE : PATH_CLEARANCE;
+      let best = { along: piece.along ?? 0, lateral: side * piece.lateral, bad: Infinity };
+      // First only the best ground, then anywhere clear. The best ground, for a piece behind the
+      // path, is inside the frame its event opens on. For one on the camera's side it is ground
+      // nearest a stretch of path in one of its eras: the path can bend back nearer there than its
+      // own stretch, and looking at it brings the nearest stretch's era into view.
+      search: for (const strict of [true, false]) {
         for (const extra of extras) {
-          const lateral = piece.lateral + extra;
+          const lateral = side * (piece.lateral + extra);
           for (const slide of alongs) {
             const a = (piece.along ?? 0) + slide;
-            if (inView && (a < -VIEW_BEHIND * (lateral + VIEW_BACK) || a > VIEW_AHEAD * (lateral + VIEW_BACK))) continue;
+            if (strict && side > 0 && (a < -VIEW_BEHIND * (lateral + VIEW_BACK) || a > VIEW_AHEAD * (lateral + VIEW_BACK))) continue;
             const center = pos.clone().addScaledVector(along, a).addScaledVector(away, lateral);
-            const bad = this.intrusion(this.worldCircles(center, along, away, piece.footprint), rivals);
+            if (strict && side < 0 && !piece.eras.includes(this.focusEra(this.nearestPathT(center.x, center.z)) ?? '')) continue;
+            const bad = this.intrusion(this.worldCircles(center, along, away, piece.footprint), rivals, clearance);
             if (bad < best.bad) best = { along: a, lateral, bad };
             if (bad === 0) break search;
           }
@@ -294,6 +357,46 @@ export class WorldProps {
       const center = pos.clone().addScaledVector(along, best.along).addScaledVector(away, best.lateral);
       placed.push({ circles: this.worldCircles(center, along, away, piece.footprint), eras: piece.eras, window: piece.window });
     }
+    this.footprints = placed.flatMap((o) => o.circles);
+    this.scatterRock();
+  }
+
+  /**
+   * The open desert's rock: mesas, buttes and spines of stone on both sides of the path, in
+   * whatever ground no piece of any era uses. Rock outlasts every era, so it is always there,
+   * which also gives the far half of the map something to see. On the background side it keeps
+   * to the horizon, behind the dioramas rather than in front of them; on the camera's side it
+   * stands out beyond where the camera goes. Seeded, so the landscape is the same every visit.
+   */
+  private scatterRock(): void {
+    const rand = rng(1965);
+    const kinds: OutcropKind[] = ['mesa', 'mesa', 'butte', 'spine'];
+    const rocks: Outcrop[] = [];
+    const taken: Circle[] = [...this.footprints];
+    const P = this.pathXZ;
+    const STEPS = 140;
+    for (let i = 0; i < STEPS; i++) {
+      const { pos, along, away } = this.axes((i + rand()) / STEPS);
+      // The camera's side is the emptier half of the map, so it gets two tries to the far side's one.
+      for (const side of [1, -1, -1]) {
+        if (rand() < 0.25) continue;
+        const kind = kinds[Math.floor(rand() * kinds.length)];
+        // Mesas are table-lands, wide and low; buttes stand tall on a small foot.
+        const r = kind === 'butte' ? 20 + rand() * 12 : kind === 'spine' ? 14 + rand() * 9 : 45 + rand() * 45;
+        // A spine runs 2.4 times as long as it is wide.
+        const reach = kind === 'spine' ? r * 2.4 : r;
+        const lateral = side > 0 ? 560 + rand() * 280 : 200 + reach + rand() * 600;
+        const c = pos.clone().addScaledVector(along, (rand() - 0.5) * 140).addScaledVector(away, side * lateral);
+        let clear = true;
+        for (let k = 0; k < P.length && clear; k += 2) clear = Math.hypot(P[k] - c.x, P[k + 1] - c.z) >= reach + 140;
+        for (let k = 0; k < taken.length && clear; k++) clear = Math.hypot(taken[k].x - c.x, taken[k].z - c.z) >= taken[k].r + reach + 24;
+        if (!clear) continue;
+        const height = kind === 'butte' ? 40 + rand() * 26 : kind === 'spine' ? 18 + rand() * 14 : 18 + rand() * 20;
+        rocks.push({ x: c.x, z: c.z, r, height, kind, angle: rand() * Math.PI, seed: rand() * 100 });
+        taken.push({ x: c.x, z: c.z, r: reach });
+      }
+    }
+    if (rocks.length) this.group.add(buildOutcrops(rocks, duneHeight));
   }
 
   /**
@@ -480,9 +583,14 @@ export class WorldProps {
     this.fleet.update(time, dt, this.dust, this.exhaust);
     this.storm.update(time, dt, this.dust);
     this.breach.update(dt, this.dust, this.exhaust);
-    this.thumper.update(time, this.dust);
+    if (this.wrapped.get(this.thumper.group)?.visible) this.thumper.update(time, this.dust);
     this.walk.update(time);
     this.river.update(time);
+    if (this.wrapped.get(this.smugglers.group)?.visible) this.smugglers.update(time + 40, dt, this.dust, this.spice);
+    this.sietch.update(time);
+    this.pilgrims.update(time);
+    this.noShip.update(time);
+    this.scattering.update(time + 7, dt, this.dust, this.exhaust);
     for (const piece of this.pieces) piece.creature?.update(dt, duneHeight, this.dust);
 
     // A spice blow where Liet-Kynes died: a pre-spice mass erupting from deep sand, every so often.

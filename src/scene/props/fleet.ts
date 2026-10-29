@@ -21,14 +21,17 @@ interface Ship {
   engineMat: THREE.MeshBasicMaterial;
 }
 
-function buildShip(): Omit<Ship, 'slot' | 'heading' | 'phase'> {
+/** Running lights for ships that fly no house's colours. */
+const plainTrim = new THREE.MeshBasicMaterial({ color: new THREE.Color('#cfe3ff').multiplyScalar(1.3) });
+
+function buildShip(banner: boolean): Omit<Ship, 'slot' | 'heading' | 'phase'> {
   const g = new THREE.Group();
   // Nose along +X: a tapered octagonal hull, a nose cone, a raised bridge and a dorsal fin.
   const hull = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 6.8, 34, 8).rotateZ(Math.PI / 2), hullMat);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(5.2, 11, 8).rotateZ(-Math.PI / 2).translate(22.5, 0, 0), hullMat);
   const bridge = new THREE.Mesh(new THREE.BoxGeometry(9, 3.2, 6).translate(9, 6, 0), darkMat);
   const fin = new THREE.Mesh(new THREE.BoxGeometry(10, 7, 1.2).translate(-12, 8, 0), hullMat);
-  const trimL = new THREE.Mesh(new THREE.BoxGeometry(28, 0.5, 0.4).translate(1, 0.5, 6.3), trimMat);
+  const trimL = new THREE.Mesh(new THREE.BoxGeometry(28, 0.5, 0.4).translate(1, 0.5, 6.3), banner ? trimMat : plainTrim);
   const trimR = trimL.clone();
   trimR.position.z = -12.6;
   g.add(hull, nose, bridge, fin, trimL, trimR);
@@ -51,6 +54,7 @@ function buildShip(): Omit<Ship, 'slot' | 'heading' | 'phase'> {
   }
 
   // A mast aft of the bridge, the banner streaming back along the hull.
+  if (!banner) return { group: g, engines, engineMat };
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 13, 6).translate(-4, 12, 0), darkMat);
   const flag = createBanner('flag', 14, 8.5);
   flag.position.set(-4, 18, 0);
@@ -60,26 +64,28 @@ function buildShip(): Omit<Ship, 'slot' | 'heading' | 'phase'> {
 }
 
 /**
- * Muad'Dib's Jihad leaving Arrakis: a launch apron flying the green and black, and Atreides
- * ships lifting off one after another and climbing out of sight. Local frame as other pieces:
- * X along the path, -Z into the background; the apron is the piece's flattened pad.
+ * Ships lifting off a launch apron one after another and climbing out of sight. With `banners`,
+ * Muad'Dib's Jihad leaving Arrakis: the apron and the ships fly the Atreides green and black.
+ * Without, any departure, such as the Scattering. Local frame as other pieces: X along the path,
+ * -Z into the background; the apron is the piece's flattened pad.
  */
-export class JihadFleet {
+export class Fleet {
   readonly group = new THREE.Group();
   private readonly ships: Ship[] = [];
   private readonly tmp = new THREE.Vector3();
   private exhaustDebt = 0;
 
-  constructor() {
+  constructor({ banners }: { banners: boolean }) {
     // Banner poles around the apron and two service gantries.
-    for (const [x, z] of [
+    const poles: [number, number][] = [
       [-120, 40],
       [-40, 52],
       [40, 52],
       [120, 40],
       [-120, -70],
       [120, -70],
-    ]) {
+    ];
+    for (const [x, z] of banners ? poles : []) {
       const pole = createBannerPole(42, 20, 12);
       pole.position.set(x, 0, z);
       // Fly downwind, roughly along the path.
@@ -102,7 +108,7 @@ export class JihadFleet {
     ];
     const ringGeo = new THREE.BoxGeometry(1.2, 0.4, 1.2);
     slots.forEach(([x, z], i) => {
-      const s = buildShip();
+      const s = buildShip(banners);
       const slot = new THREE.Vector3(x, 8.6, z);
       // A ring of landing lights on each pad.
       const ring = new THREE.InstancedMesh(ringGeo, padLight, 12);

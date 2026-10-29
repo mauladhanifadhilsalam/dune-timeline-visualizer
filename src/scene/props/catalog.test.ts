@@ -38,6 +38,14 @@ describe('set pieces', () => {
     }
   });
 
+  it('stand clear of the camera when on its side of the path', () => {
+    // The camera rides about 60 to 90 out on that side; a piece there must start well beyond it.
+    for (const p of SET_PIECES.filter((x) => x.side === 'near')) {
+      const reach = Math.max(...p.footprint.map((c) => Math.max(c.z, 0) + c.r));
+      expect(p.lateral - reach, p.kind).toBeGreaterThan(120);
+    }
+  });
+
   it('give every worm its swimming parameters', () => {
     for (const p of SET_PIECES.filter((x) => x.kind === 'worm')) expect(p.worm).toBeDefined();
   });

@@ -24,7 +24,12 @@ export type PieceKind =
   | 'shield-breach'
   | 'thumper'
   | 'desert-walk'
-  | 'idaho-river';
+  | 'idaho-river'
+  | 'smuggler-crawler'
+  | 'sietch'
+  | 'pilgrims'
+  | 'no-ship'
+  | 'scattering-fleet';
 
 export interface SetPiece {
   kind: PieceKind;
@@ -43,6 +48,12 @@ export interface SetPiece {
   moment?: number;
   /** Preferred distance into the background; placement may push it further or slide it along. */
   lateral: number;
+  /**
+   * 'near': on the camera's side of the path instead, out beyond where the camera rides, so it
+   * fills the other half of the map: seen from the overview or when looking round, not in the
+   * frame an event opens on. `lateral` is then the distance out on that side.
+   */
+  side?: 'near';
   /**
    * Preferred slide along the path from the event; positive is ahead, which is the right of the
    * frame the event opens on. Placement searches around it.
@@ -264,5 +275,82 @@ export const SET_PIECES: SetPiece[] = [
     footprint: [{ x: 0, z: 0, r: 48 }],
     worm: { scale: 0.32, loopAlong: 45, loopAcross: 28, speed: 9, phase: 0 },
     note: "The first young worms of Chapterhouse's new desert.",
+  },
+
+  // Life on the other half of the map, and in the empty ground of the late eras. Placed last, so
+  // they take what room is left.
+  {
+    kind: 'smuggler-crawler',
+    event: 'water-of-life',
+    // Smugglers worked Arrakis for generations under the Harkonnens before Gurney joined them.
+    eras: ['imperium', 'muaddib'],
+    side: 'near',
+    lateral: 300,
+    footprint: [{ x: 0, z: 0, r: 60 }],
+    pad: { tint: '#a8471f', amount: 0.6 },
+    padRadius: 52,
+    note: "Smugglers working a spice field on the quiet, with no carryall to spare: the free traders who have run spice under the Harkonnens' noses for generations, whom Gurney Halleck falls in with after the fall of House Atreides, and whose crawler Paul's Fremen fall on before he drinks the Water of Life, finding Gurney again.",
+  },
+  {
+    kind: 'sietch',
+    event: 'jamis-duel',
+    eras: ['muaddib', 'atreides-empire'],
+    side: 'near',
+    lateral: 300,
+    footprint: [
+      { x: 0, z: 0, r: 84 },
+      { x: 165, z: 30, r: 40 },
+      { x: 270, z: 90, r: 34 },
+    ],
+    label: { title: 'Sietch Tabr', sub: "Stilgar's cave-warren", height: 50 },
+    note: "Sietch Tabr, Stilgar's cave-warren in the rock, where Paul and Jessica are taken in after the duel with Jamis. A band of Fremen comes in off the sand in the sandwalk, stepping without rhythm so no worm hears them.",
+  },
+  {
+    kind: 'worm',
+    event: 'preacher-arrives',
+    eras: ['atreides-empire'],
+    side: 'near',
+    lateral: 320,
+    footprint: [{ x: 0, z: 0, r: 118 }],
+    worm: { scale: 0.9, loopAlong: 110, loopAcross: 60, speed: 20, phase: 80, reverse: true },
+    note: 'A wild maker in the deep desert of Children of Dune, where the blind Preacher wanders.',
+  },
+  {
+    kind: 'scattering-fleet',
+    event: 'scattering',
+    eras: ['scattering'],
+    along: 60,
+    lateral: 200,
+    footprint: [
+      { x: -70, z: -10, r: 85 },
+      { x: 70, z: -10, r: 85 },
+    ],
+    pad: { tint: '#4b443d', amount: 0.6 },
+    padRadius: 150,
+    note: "Ships of the Scattering lifting off: after Leto II's death, humanity flees outward into the unknown universe, beyond the reach of any one prescience.",
+  },
+  {
+    kind: 'pilgrims',
+    event: 'sheeana',
+    eras: ['return'],
+    side: 'near',
+    lateral: 280,
+    footprint: [-120, 0, 120].map((x) => ({ x, z: 0, r: 70 })),
+    note: "Pilgrims crossing the sand to Keen to worship Leto II as the Divided God, with one of the Rakian Priesthood's ornithopters overhead: Rakis in Heretics of Dune.",
+  },
+  {
+    kind: 'no-ship',
+    event: 'no-ship-escape',
+    eras: ['return'],
+    along: 80,
+    lateral: 230,
+    footprint: [
+      { x: -50, z: 0, r: 60 },
+      { x: 50, z: 0, r: 60 },
+    ],
+    pad: { tint: '#6d6258', amount: 0.5 },
+    padRadius: 110,
+    label: { title: 'The no-ship', sub: 'invisible to prescience, not to eyes', height: 62 },
+    note: "The no-ship on Chapterhouse's landing field, where Duncan Idaho and Sheeana are kept, and in which they escape at the end of Chapterhouse: Dune.",
   },
 ];

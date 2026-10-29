@@ -5,6 +5,13 @@ const metal = new THREE.MeshStandardMaterial({ color: '#625548', metalness: 0.5,
 const dark = new THREE.MeshStandardMaterial({ color: '#2e2824', metalness: 0.3, roughness: 0.8 });
 const lamp = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffc46e').multiplyScalar(2.2) });
 
+export interface HarvesterOptions {
+  /** The carryall standing by overhead to lift it clear when a worm comes. */
+  carryall?: boolean;
+  /** Hull colour, for a crawler that is not the Harkonnens'. */
+  paint?: string;
+}
+
 /**
  * A spice harvester (crawler) working a spice field, with the carryall that will lift it clear
  * when a worm comes. Local frame: the crawler circles the origin; the field is the flattened pad.
@@ -20,7 +27,8 @@ export class Harvester {
   /** Radius of the crawler's circuit; the catalog's pad is sized to hold it. */
   static readonly ORBIT = 40;
 
-  constructor() {
+  constructor({ carryall = true, paint }: HarvesterOptions = {}) {
+    const hull = paint ? new THREE.MeshStandardMaterial({ color: paint, metalness: 0.35, roughness: 0.75 }) : metal;
     const box = (w: number, h: number, d: number, m: THREE.Material, x = 0, y = 0, z = 0) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
       mesh.position.set(x, y, z);
@@ -32,9 +40,9 @@ export class Harvester {
       for (const z of [-12, 12]) this.crawler.add(box(17, 6, 7, dark, x, 3, z));
     }
     this.crawler.add(
-      box(52, 7, 22, metal, 0, 9, 0),
-      box(30, 5, 12, metal, -6, 15, 0),
-      box(9, 6, 14, metal, 18, 15, 0),
+      box(52, 7, 22, hull, 0, 9, 0),
+      box(30, 5, 12, hull, -6, 15, 0),
+      box(9, 6, 14, hull, 18, 15, 0),
       box(7, 3, 24, dark, 28, 4, 0),
     );
     const stackMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.9, 12, 10), dark);
@@ -49,6 +57,7 @@ export class Harvester {
       this.crawler.add(l);
     }
     this.group.add(this.crawler);
+    if (!carryall) return;
 
     // Carryall: a broad lifting wing with four engine pods, holding station overhead.
     this.carryall.add(box(34, 3, 26, metal), box(10, 4, 8, dark, 0, -3, 0));
