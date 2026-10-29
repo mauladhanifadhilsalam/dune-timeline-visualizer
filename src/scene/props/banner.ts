@@ -1,59 +1,120 @@
 import * as THREE from 'three';
 
 /**
- * The Atreides banner. Dune gives it only two colours, green and black ("the green and black
- * Atreides banner" Paul sees at the head of his jihad's legions), and no emblem; the hawk is the
- * ducal crest on the signet, not something Herbert puts on the flag. So: a plain two-colour cloth.
+ * The Atreides banner, in the design of the 2021 film: charcoal outer panels and a deep green
+ * centre, divided by gold stripes, with the gold hawk across them. The books give only the
+ * colours ("the green and black Atreides banner" at the head of Paul's legions) and put the hawk
+ * on the ducal crest, so the emblem is the film's reading, not Herbert's.
  */
 
 /** Shared clock for every banner's flutter; WorldProps advances it each frame. */
 export const bannerClock: THREE.IUniform<number> = { value: 0 };
 
-const GREEN = '#1f6b3a';
-const BLACK = '#0d0d0b';
+const GOLD = '#d6ac68';
+const DARK = '#18252a';
+const GREEN = '#00534b';
+const EDGE = '#a8844c';
 
-function flagTexture(): THREE.CanvasTexture {
-  const W = 256;
-  const H = 160;
-  const cv = document.createElement('canvas');
-  cv.width = W;
-  cv.height = H;
-  const g = cv.getContext('2d')!;
-  g.fillStyle = GREEN;
-  g.fillRect(0, 0, W, H);
-  // Black band across the middle and a black hoist edge by the pole.
-  g.fillStyle = BLACK;
-  g.fillRect(0, H * 0.38, W, H * 0.24);
-  g.fillRect(0, 0, W * 0.07, H);
+/** The stripes across the cloth, as fractions of its width, and their colours. */
+const STRIPES: [number, number, string][] = [
+  [0, 0.0425, GOLD],
+  [0.0425, 0.271, DARK],
+  [0.271, 0.3135, GOLD],
+  [0.3135, 0.6775, GREEN],
+  [0.6775, 0.72, GOLD],
+  [0.72, 0.9585, DARK],
+  [0.9585, 1, GOLD],
+];
+
+/**
+ * The hawk, traced on a 2000 x 1047 banner: the wings swept up into a V that narrows to a tail,
+ * the head in the fork, and a feather below each wing. Centred on (990, 527) there.
+ */
+const HAWK: [number, number][][] = (() => {
+  const wings: [number, number][] = [
+    [489, 95], [990, 596], [1492, 93], [1492, 262], [1055, 699], [1055, 895],
+    [990, 962], [922, 895], [922, 698], [489, 265],
+  ];
+  const head: [number, number][] = [
+    [909, 492], [990, 412], [1068, 412], [1076, 418], [1076, 436], [1068, 441],
+    [1057, 433], [1036, 455], [1071, 492], [990, 574],
+  ];
+  const feather: [number, number][] = [[542, 347], [907, 712], [907, 868], [900, 873], [815, 788], [815, 703], [542, 430]];
+  const mirrored = feather.map(([x, y]): [number, number] => [1980 - x, y]);
+  return [wings, head, feather, mirrored];
+})();
+
+/** Fills a w x h area with the stripes. */
+function stripes(g: CanvasRenderingContext2D, w: number, h: number): void {
+  for (const [a, b, colour] of STRIPES) {
+    g.fillStyle = colour;
+    g.fillRect(Math.floor(a * w), 0, Math.ceil((b - a) * w), h);
+  }
+}
+
+/** Draws the hawk centred on (cx, cy), `scale` times its size on the 2000-wide reference. */
+function hawk(g: CanvasRenderingContext2D, cx: number, cy: number, scale: number): void {
+  g.save();
+  g.translate(cx, cy);
+  g.scale(scale, scale);
+  g.translate(-990, -527);
+  g.fillStyle = GOLD;
+  g.strokeStyle = EDGE;
+  // A thin darker edge, so the hawk still parts from the gold stripes it crosses.
+  g.lineWidth = 4;
+  g.lineJoin = 'round';
+  for (const poly of HAWK) {
+    g.beginPath();
+    poly.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.fill();
+    g.stroke();
+  }
+  g.restore();
+}
+
+function canvasTexture(cv: HTMLCanvasElement): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
   return tex;
 }
 
-function hangingTexture(): THREE.CanvasTexture {
-  const W = 128;
-  const H = 512;
+/** The flag, in the reference's proportions (about 1.9 : 1). */
+function flagTexture(): THREE.CanvasTexture {
+  const W = 1024;
+  const H = 536;
   const cv = document.createElement('canvas');
   cv.width = W;
   cv.height = H;
   const g = cv.getContext('2d')!;
-  g.fillStyle = BLACK;
-  g.fillRect(0, 0, W, H);
-  g.fillStyle = GREEN;
-  g.fillRect(W * 0.14, H * 0.06, W * 0.72, H * 0.84);
-  g.fillStyle = BLACK;
-  g.fillRect(W * 0.14, H * 0.42, W * 0.72, H * 0.1);
+  stripes(g, W, H);
+  hawk(g, W * 0.495, H * 0.503, W / 2000);
+  return canvasTexture(cv);
+}
+
+/** A long hanging: the same stripes run its length, the hawk near the top, a swallowtail below. */
+function hangingTexture(): THREE.CanvasTexture {
+  const W = 160;
+  const H = 1280;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d')!;
+  stripes(g, W, H);
+  // A gold band where it hangs from its rod.
+  g.fillStyle = GOLD;
+  g.fillRect(0, 0, W, H * 0.018);
+  hawk(g, W * 0.495, H * 0.15, (W * 0.92) / 1003);
   // Swallowtail: cut a notch out of the bottom edge (alpha-tested away).
   g.globalCompositeOperation = 'destination-out';
   g.beginPath();
   g.moveTo(0, H);
-  g.lineTo(W / 2, H * 0.9);
+  g.lineTo(W / 2, H * 0.92);
   g.lineTo(W, H);
   g.closePath();
   g.fill();
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+  return canvasTexture(cv);
 }
 
 let textures: { flag: THREE.CanvasTexture; hanging: THREE.CanvasTexture } | null = null;

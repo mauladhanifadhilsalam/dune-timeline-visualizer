@@ -59,8 +59,9 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   era, so it is always there. It keeps to the horizon behind the dioramas, never in front of them.
 
   The major landmarks carry a name in the scene, culled like every other label so they never pile up.
-  Banners are plain green and black: that is all Dune gives the Atreides banner. The hawk is the ducal crest,
-  not something Herbert puts on the flag.
+  The Atreides banner follows the 2021 film's design: charcoal and deep green panels, gold stripes, and the gold
+  hawk. That is the film's reading, not Herbert's: the books give only "the green and black Atreides banner",
+  and put the hawk on the ducal crest.
 
   Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
   leave, so a snaking path never shows one era's props on another's horizon. Scenes (the storm, the thumper,

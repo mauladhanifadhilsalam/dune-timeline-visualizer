@@ -4,7 +4,7 @@ import type { Particles } from './particles';
 
 const hullMat = new THREE.MeshStandardMaterial({ color: '#5a554f', metalness: 0.6, roughness: 0.45, flatShading: true });
 const darkMat = new THREE.MeshStandardMaterial({ color: '#2b2826', metalness: 0.5, roughness: 0.6 });
-const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#3fbf5a').multiplyScalar(1.7) });
+const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#d6ac68').multiplyScalar(1.5) });
 const padLight = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a').multiplyScalar(2) });
 
 /** One launch cycle, in seconds: spool up on the pad, lift, climb out of sight. */
@@ -56,7 +56,7 @@ function buildShip(banner: boolean): Omit<Ship, 'slot' | 'heading' | 'phase'> {
   // A mast aft of the bridge, the banner streaming back along the hull.
   if (!banner) return { group: g, engines, engineMat };
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 13, 6).translate(-4, 12, 0), darkMat);
-  const flag = createBanner('flag', 14, 8.5);
+  const flag = createBanner('flag', 15, 7.8);
   flag.position.set(-4, 18, 0);
   flag.rotation.y = Math.PI; // stream aft (-X)
   g.add(mast, flag);
@@ -86,7 +86,7 @@ export class Fleet {
       [120, -70],
     ];
     for (const [x, z] of banners ? poles : []) {
-      const pole = createBannerPole(42, 20, 12);
+      const pole = createBannerPole(42, 22, 11.5);
       pole.position.set(x, 0, z);
       // Fly downwind, roughly along the path.
       pole.rotation.y = 0.35;
