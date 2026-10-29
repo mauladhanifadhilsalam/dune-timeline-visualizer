@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildFigure } from './figure';
 import type { Particles } from './particles';
 
 export interface WormOptions {
@@ -12,6 +13,11 @@ export interface WormOptions {
   phase: number;
   /** Swim the loop clockwise instead. */
   reverse?: boolean;
+  /**
+   * A Fremen rides it. Maker hooks hold a ring of its body open, so a ridden worm cannot dive:
+   * it stays at the surface, with the rider standing behind the head.
+   */
+  ridden?: boolean;
 }
 
 const SEGMENTS = 34;
@@ -67,6 +73,12 @@ function assets() {
   return shared;
 }
 
+/** The worm body's ring segment and skin, for other pieces that need a worm's body. */
+export function wormBodyAssets(): { segment: THREE.BufferGeometry; material: THREE.MeshStandardMaterial } {
+  const a = assets();
+  return { segment: a.segment, material: a.body };
+}
+
 /**
  * Shai-Hulud. The body follows the head along one closed curve (a sine wave through the sand
  * surface, swept around an ellipse), so it surfaces in arcs and dives again like a sea creature.
@@ -85,6 +97,7 @@ export class Sandworm {
   private readonly dummy = new THREE.Object3D();
   private readonly pts: THREE.Vector3[] = Array.from({ length: SEGMENTS + 2 }, () => new THREE.Vector3());
   private readonly ground: number[] = new Array(SEGMENTS + 2).fill(0);
+  private readonly rider: THREE.Group | null = null;
 
   constructor(private readonly o: WormOptions) {
     const a = assets();
@@ -114,6 +127,25 @@ export class Sandworm {
     this.head.add(lip, maw, teeth);
     this.group.add(this.body, this.head);
     this.s = o.phase;
+
+    if (o.ridden) {
+      // The rider, drawn several times life size so it reads at all against a great maker, with
+      // two maker hooks: long staves angled forward into the ring segments.
+      const rider = new THREE.Group();
+      const figure = buildFigure('#2e241c');
+      figure.scale.setScalar(4.2);
+      const hookMat = new THREE.MeshStandardMaterial({ color: '#4a3a2c', roughness: 0.8 });
+      const hookGeo = new THREE.CylinderGeometry(0.09, 0.09, 6.5, 6).translate(0, 3.25, 0);
+      for (const side of [-1, 1]) {
+        const hook = new THREE.Mesh(hookGeo, hookMat);
+        hook.position.set(side * 0.7, 2.4, 0.3);
+        hook.rotation.set(1.05, 0, side * 0.35);
+        rider.add(hook);
+      }
+      rider.add(figure);
+      this.rider = rider;
+      this.group.add(rider);
+    }
   }
 
   /** Centre of the loop and the path's local axes there. */
@@ -146,6 +178,10 @@ export class Sandworm {
    */
   private lift(s: number): number {
     const sc = this.o.scale;
+    if (this.o.ridden) {
+      // Held at the surface: about half the body above the sand, rolling gently.
+      return 6.2 * sc * 0.45 + Math.sin(s / (60 * sc)) * 1.6 * sc - (1 - this.presence) * 70 * sc;
+    }
     const wave = Math.sin((s / (270 * sc)) * Math.PI * 2);
     const H = 26 * sc;
     const D = 11 * sc + (1 - this.presence) * 70 * sc;
@@ -184,6 +220,16 @@ export class Sandworm {
     this.head.position.copy(h0).addScaledVector(h0.clone().sub(h1).normalize(), 0.3 * sc);
     this.head.lookAt(this.head.position.clone().add(h0.clone().sub(h1)));
     this.head.scale.setScalar(r0 * 1.02);
+
+    if (this.rider) {
+      // Standing on the back a few rings behind the head, facing the way it travels.
+      const a = this.pts[4];
+      const b = this.pts[5];
+      const r = r0 * (0.98 - 0.5 * Math.pow(4 / SEGMENTS, 1.4));
+      this.rider.position.copy(a).add(b).multiplyScalar(0.5);
+      this.rider.position.y += r * 0.92;
+      this.rider.lookAt(this.rider.position.x + (a.x - b.x), this.rider.position.y, this.rider.position.z + (a.z - b.z));
+    }
 
     // Sand sprays wherever the body breaks the surface.
     this.emitDebt += dt * 70 * sc;

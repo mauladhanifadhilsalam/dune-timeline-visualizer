@@ -37,6 +37,19 @@ const warp = (u: number) => 0.3 * u + 0.7 * u * u * u * u * u;
 
 /** How many flattened pads the terrain shader supports at once. */
 export const MAX_PADS = 4;
+/** Points in the river course the terrain carves (a polyline sampled from a smooth curve). */
+export const RIVER_POINTS = 16;
+
+/** A river channel cut into the terrain, in world coordinates. */
+export interface RiverCourse {
+  points: THREE.Vector2[];
+  halfWidth: number;
+  bank: number;
+  /** Water surface height; the bed is cut below it. */
+  level: number;
+  /** 0..1: how much of the channel is cut (eased with the river's visibility). */
+  amount: number;
+}
 
 /** A t-range on the path [rampIn0, rampIn1, rampOut0, rampOut1]; t outside [0, 1] disables it. */
 export type Band = [number, number, number, number];
@@ -66,6 +79,11 @@ const eco = {
   uPadTint: { value: Array.from({ length: MAX_PADS }, () => new THREE.Vector4()) },
   /** A circle kept as desert whatever the era (x, z, radius, amount): Leto II's Sareer. */
   uDesert: { value: new THREE.Vector4() },
+  /** River course points (world x, z) and (half width, level, amount, bank). */
+  uRiverPts: { value: Array.from({ length: RIVER_POINTS }, () => new THREE.Vector2()) },
+  uRiver: { value: new THREE.Vector4() },
+  /** Bounding circle of the course (x, z, radius), so far-off vertices skip the distance loop. */
+  uRiverBounds: { value: new THREE.Vector3() },
 };
 
 const ECO_COMMON = /* glsl */ `
@@ -74,7 +92,27 @@ const ECO_COMMON = /* glsl */ `
   uniform vec4 uScorch;
   uniform float uScorchVis;
   uniform vec4 uDesert;
+  uniform vec2 uRiverPts[${RIVER_POINTS}];
+  uniform vec4 uRiver;
+  uniform vec3 uRiverBounds;
   float ecoBand(vec4 r, float t) { return smoothstep(r.x, r.y, t) * (1.0 - smoothstep(r.z, r.w, t)); }
+  // Distance to the river's centre line (very large when there is no river, or far from it).
+  float riverDist(vec2 p, float margin) {
+    if (uRiver.z <= 0.0 || length(p - uRiverBounds.xy) > uRiverBounds.z + margin) return 1e9;
+    float d = 1e9;
+    for (int i = 0; i < ${RIVER_POINTS - 1}; i++) {
+      vec2 a = uRiverPts[i];
+      vec2 ba = uRiverPts[i + 1] - a;
+      vec2 pa = p - a;
+      float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+      d = min(d, length(pa - ba * h));
+    }
+    return d;
+  }
+  // 1 in the river channel, falling to 0 across the banks.
+  float riverMask(vec2 p) {
+    return uRiver.z * (1.0 - smoothstep(uRiver.x, uRiver.x + uRiver.w, riverDist(p, 0.0)));
+  }
   float desertMask(vec2 xz) {
     if (uDesert.z <= 0.0) return 0.0;
     return uDesert.w * (1.0 - smoothstep(uDesert.z - 14.0, uDesert.z + 4.0, length(xz - uDesert.xy)));
@@ -97,6 +135,7 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
       varying vec3 vPadCol;
       varying float vPadA;
       varying vec2 vXZ;
+      varying float vRiver;
       float padMask(vec2 xz, vec4 p) {
         if (p.z <= 0.0) return 0.0;
         return 1.0 - smoothstep(p.z * 0.72, p.z, length(xz - p.xy));
@@ -111,7 +150,8 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
         pms[i] = padMask(position.xz, uPads[i]);
         pmMax = max(pmMax, pms[i]);
       }
-      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), pmMax));`,
+      float rm = riverMask(position.xz);
+      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), max(pmMax, rm * 0.6)));`,
     )
     .replace(
       '#include <begin_vertex>',
@@ -124,8 +164,11 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
         vPadCol += uPadTint[i].rgb * uPadTint[i].a * pms[i];
       }
       vPadA = min(vPadA, 1.0);
+      // The river cuts its bed below the water line; ground already lower is left alone.
+      transformed.y = mix(transformed.y, min(transformed.y, uRiver.y - 5.0), rm);
+      vRiver = rm;
       vGreen = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(380.0, 720.0, aPathDist));
-      vGreen *= 1.0 - desertMask(position.xz);
+      vGreen *= (1.0 - desertMask(position.xz)) * (1.0 - rm * 0.85);
       vScorch = uScorchVis * ecoBand(uScorch, aPathT) * (1.0 - smoothstep(180.0, 480.0, aPathDist));
       vXZ = position.xz;`,
     );
@@ -137,7 +180,8 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
       varying float vScorch;
       varying vec3 vPadCol;
       varying float vPadA;
-      varying vec2 vXZ;`,
+      varying vec2 vXZ;
+      varying float vRiver;`,
     )
     .replace(
       '#include <color_fragment>',
@@ -146,7 +190,9 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
       diffuseColor.rgb = diffuseColor.rgb * (1.0 - vPadA) + vPadCol * (0.7 + 0.9 * lumV);
       vec3 grass = mix(vec3(0.09, 0.2, 0.05), vec3(0.26, 0.38, 0.1), smoothstep(0.08, 0.3, lumV));
       diffuseColor.rgb = mix(diffuseColor.rgb, grass, vGreen);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.045, 0.04), vScorch);`,
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.045, 0.04), vScorch);
+      // Wet mud on the banks.
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.16, 0.11, 0.07), vRiver * 0.75);`,
     )
     .replace(
       '#include <roughnessmap_fragment>',
@@ -271,7 +317,11 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
         `#include <begin_vertex>
         float g = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(200.0, 330.0, aPathDist));
         // No forest inside the Sareer.
-        g *= 1.0 - desertMask((instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz);
+        vec2 treeXZ = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
+        g *= 1.0 - desertMask(treeXZ);
+        // Nor along the river: a meadow opens either side of it, so the water shows from the path.
+        float meadow = uRiver.x + uRiver.w + 80.0;
+        g *= mix(1.0, smoothstep(meadow - 40.0, meadow, riverDist(treeXZ, meadow)), uRiver.z);
         transformed *= clamp(g * 1.5 - aSeed * 0.5, 0.0, 1.0);`,
       );
   };
@@ -532,6 +582,8 @@ export interface Desert {
   setPads: (pads: Pad[]) => void;
   /** A circle of ground kept as open desert, even where the era has turned it green. */
   setDesertPatch: (patch: { x: number; z: number; radius: number; amount: number } | null) => void;
+  /** A river channel cut through the terrain (and its forest). */
+  setRiver: (river: RiverCourse | null) => void;
   /** 0..1: how thick the glowing spice motes hang in the air around the camera. */
   setSpice: (level: number) => void;
   /** 0..1 each: how much of the green and scorched bands show, given where the camera is in time. */
@@ -610,6 +662,26 @@ export function createDesert(path: GoldenPath): Desert {
           eco.uPadTint.value[i].set(0, 0, 0, 0);
         }
       }
+    },
+    setRiver(r) {
+      if (!r || r.amount <= 0.001) {
+        eco.uRiver.value.set(0, 0, 0, 0);
+        return;
+      }
+      let cx = 0;
+      let cz = 0;
+      for (const p of r.points) {
+        cx += p.x / r.points.length;
+        cz += p.y / r.points.length;
+      }
+      let rad = 0;
+      for (let i = 0; i < RIVER_POINTS; i++) {
+        const p = r.points[Math.min(i, r.points.length - 1)];
+        eco.uRiverPts.value[i].copy(p);
+        rad = Math.max(rad, Math.hypot(p.x - cx, p.y - cz));
+      }
+      eco.uRiver.value.set(r.halfWidth, r.level, r.amount, r.bank);
+      eco.uRiverBounds.value.set(cx, cz, rad + r.halfWidth + r.bank + 10);
     },
     setDesertPatch(p) {
       if (p) eco.uDesert.value.set(p.x, p.z, p.radius, p.amount);

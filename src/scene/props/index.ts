@@ -7,6 +7,11 @@ import { Arrakeen } from './arrakeen';
 import { bannerClock } from './banner';
 import { SareerCitadel, buildKeep } from './citadels';
 import { JihadFleet } from './jihad-fleet';
+import { ShieldWallBreach } from './ridge';
+import { IdahoRiver } from './river';
+import { CoriolisStorm } from './storm';
+import { Thumper } from './thumper';
+import { DesertWalk } from './walk';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
 import { Particles } from './particles';
@@ -23,6 +28,8 @@ interface Piece extends SetPiece {
   vis?: number;
   /** Solved offset from the anchor: along the path and into the background. */
   spot?: { along: number; lateral: number };
+  /** For a moment: the stretch of path (in t) over which the camera is near enough to show it. */
+  window?: [number, number];
   /** Resting transform from the last layout, before presence and visibility are applied. */
   base?: { center: THREE.Vector3; quat: THREE.Quaternion };
   /** Fits parts of the piece to the dunes once its place is known. */
@@ -50,10 +57,18 @@ const SPICE_BY_ERA: Record<string, number> = {
 const UP = new THREE.Vector3(0, 1, 0);
 /** Ground left free around the path, so no piece stands on another era's stretch of it. */
 const PATH_CLEARANCE = 26;
+/**
+ * The frame an event opens on, as a range of along/lateral ratios: the camera stands about 60
+ * units back across the path, a little behind the event, so it looks slightly ahead along it.
+ */
+const VIEW_BEHIND = 0.4;
+const VIEW_AHEAD = 0.95;
+const VIEW_BACK = 60;
 
 /**
  * Everything in the world that belongs to a moment: heighliners, Arrakeen, the Emperor's camp,
- * a harvester, worms, a crysknife, Jihad wreckage, a spice blow, and the ground's own ecology.
+ * a harvester, worms, a crysknife, Jihad wreckage, a spice blow, storms, the Shield Wall breach,
+ * the Idaho River, and the ground's own ecology.
  * Each piece is pinned to an event, so it moves with the story/true scale and the reckoning like
  * the lights do. That also keeps the world honest to the books: no worms in Leto II's green
  * Arrakis, and they come back with Rakis.
@@ -71,6 +86,12 @@ export class WorldProps {
   private readonly fleet = new JihadFleet();
   private readonly citadel = new SareerCitadel();
   private citadelPiece: Piece | null = null;
+  private readonly storm = new CoriolisStorm();
+  private readonly breach = new ShieldWallBreach();
+  private readonly thumper = new Thumper();
+  private readonly walk = new DesertWalk();
+  private readonly river = new IdahoRiver();
+  private riverPiece: Piece | null = null;
   /** Lift-engine exhaust: hot, blue-white, short-lived. */
   private readonly exhaust = new Particles({
     capacity: 1600,
@@ -149,6 +170,28 @@ export class WorldProps {
           piece.fit = (c, q) => this.citadel.fit(c, q);
           this.citadelPiece = piece;
           break;
+        case 'storm':
+          piece.object = this.storm.group;
+          break;
+        case 'shield-breach':
+          piece.object = this.breach.group;
+          break;
+        case 'thumper':
+          // The thumper stands at the near edge of the loop the maker it called is swimming.
+          piece.object = new THREE.Group().add(this.thumper.group);
+          this.thumper.group.position.z = (spec.worm?.loopAcross ?? 0) + 22;
+          piece.creature = new Sandworm(spec.worm!);
+          this.group.add(piece.creature.group);
+          break;
+        case 'desert-walk':
+          piece.object = this.walk.group;
+          piece.fit = (c, q) => this.walk.fit(c, q);
+          break;
+        case 'idaho-river':
+          piece.object = this.river.group;
+          piece.fit = (c, q) => this.river.fit(c, q);
+          this.riverPiece = piece;
+          break;
       }
       if (spec.label && labeler) {
         piece.labelObj = labeler(spec.label.title, spec.label.sub, () => this.amount(piece) > 0.6);
@@ -191,7 +234,7 @@ export class WorldProps {
   }
 
   /** How badly a set of circles intrudes on the path or on pieces already placed (0 = clear). */
-  private intrusion(circles: Circle[], placed: Circle[]): number {
+  private intrusion(circles: Circle[], placed: readonly Circle[]): number {
     let worst = 0;
     const P = this.pathXZ;
     for (const c of circles) {
@@ -211,35 +254,66 @@ export class WorldProps {
 
   /**
    * Slide each grounded piece along the path and further into the background until its footprint
-   * is clear. Candidates are tried nearest-first, so a piece stays as close to its event as fits.
+   * is clear. Candidates are tried nearest-first, so a piece stays as close to its event as fits,
+   * and first only where the event's own camera will see it; off-frame spots are a last resort.
    */
   private solve(p: Placement): void {
-    const placed: Circle[] = [];
-    const alongs = [0, 40, -40, 80, -80, 130, -130, 180, -180, 240, -240];
-    const extras = [0, 40, 80, 130, 190, 260, 340];
+    // Pieces only need to keep clear of pieces they can be on screen with: those sharing an era,
+    // unless both are moments whose stretches of path do not meet.
+    const placed: { circles: Circle[]; eras: string[]; window?: [number, number] }[] = [];
+    const meet = (a?: [number, number], b?: [number, number]) => !a || !b || (a[0] < b[1] && b[0] < a[1]);
+    const alongs = [0, 40, -40, 80, -80, 130, -130, 180, -180, 240, -240, 320, -320, 400, -400];
+    const extras = [0, 40, 80, 130, 190, 260, 340, 440];
     for (const piece of this.pieces) {
       const t = p.events.get(piece.event)?.t;
       if (t === undefined) continue;
       const { pos, along, away } = this.axes(t);
-      let best = { along: 0, lateral: piece.lateral, bad: Infinity };
-      search: for (const extra of extras) {
-        for (const a of alongs) {
+      const rivals = placed
+        .filter((o) => o.eras.some((e) => piece.eras.includes(e)) && meet(o.window, piece.window))
+        .flatMap((o) => o.circles);
+      let best = { along: piece.along ?? 0, lateral: piece.lateral, bad: Infinity };
+      search: for (const inView of [true, false]) {
+        for (const extra of extras) {
           const lateral = piece.lateral + extra;
-          const center = pos.clone().addScaledVector(along, a).addScaledVector(away, lateral);
-          const bad = this.intrusion(this.worldCircles(center, along, away, piece.footprint), placed);
-          if (bad < best.bad) best = { along: a, lateral, bad };
-          if (bad === 0) break search;
+          for (const slide of alongs) {
+            const a = (piece.along ?? 0) + slide;
+            if (inView && (a < -VIEW_BEHIND * (lateral + VIEW_BACK) || a > VIEW_AHEAD * (lateral + VIEW_BACK))) continue;
+            const center = pos.clone().addScaledVector(along, a).addScaledVector(away, lateral);
+            const bad = this.intrusion(this.worldCircles(center, along, away, piece.footprint), rivals);
+            if (bad < best.bad) best = { along: a, lateral, bad };
+            if (bad === 0) break search;
+          }
         }
       }
       piece.spot = { along: best.along, lateral: best.lateral };
       const center = pos.clone().addScaledVector(along, best.along).addScaledVector(away, best.lateral);
-      placed.push(...this.worldCircles(center, along, away, piece.footprint));
+      placed.push({ circles: this.worldCircles(center, along, away, piece.footprint), eras: piece.eras, window: piece.window });
+    }
+  }
+
+  /**
+   * A moment shows while the camera is nearer to its event, or to one within `moment` events of
+   * it, than to any event further off: from halfway to the next event out on either side.
+   */
+  private moments(p: Placement): void {
+    const ts = [...p.events.values()].map((e) => e.t).sort((a, b) => a - b);
+    for (const piece of this.pieces) {
+      const t = p.events.get(piece.event)?.t;
+      if (piece.moment === undefined || t === undefined) continue;
+      const k = ts.indexOf(t);
+      const lo = k - piece.moment;
+      const hi = k + piece.moment;
+      piece.window = [
+        lo > 0 ? (ts[lo - 1] + ts[lo]) / 2 : -Infinity,
+        hi < ts.length - 1 ? (ts[hi] + ts[hi + 1]) / 2 : Infinity,
+      ];
     }
   }
 
   layout(p: Placement, res: Resolved): void {
     this.placement = p;
     this.res = res;
+    this.moments(p);
     // Spots are solved once, on the story-scale layout the app starts with. Story-scale positions
     // of every anchor here are the same under both reckonings, and on true scale the pieces are
     // sunk out of sight, so there is nothing to re-solve and nothing hops around mid-morph.
@@ -287,10 +361,7 @@ export class WorldProps {
     for (const piece of this.pieces) {
       if (!piece.base) continue;
       const k = this.amount(piece);
-      if (piece.creature) {
-        piece.creature.setPresence(k);
-        continue;
-      }
+      if (piece.creature) piece.creature.setPresence(k);
       if (piece.pad && pads.length < MAX_PADS && k > 0.001) {
         pads.push({
           x: piece.base.center.x,
@@ -327,6 +398,9 @@ export class WorldProps {
         ? { x: cp.base.center.x, z: cp.base.center.z, radius: (SareerCitadel.RADIUS + 10) * ck, amount: ck }
         : null,
     );
+    // The river's channel is cut only while it is in view: Rakis, later, is desert again.
+    const rk = this.riverPiece ? this.amount(this.riverPiece) : 0;
+    this.desert.setRiver(this.river.course && rk > 0.001 ? { ...this.river.course, amount: rk } : null);
   }
 
   /**
@@ -384,7 +458,9 @@ export class WorldProps {
     const era = this.focusEra(focusT);
     const ease = Math.min(dt * 1.4, 1);
     for (const piece of this.pieces) {
-      const target = era !== null && piece.eras.includes(era) ? 1 : 0;
+      const w = piece.window;
+      const near = !w || (focusT >= w[0] && focusT <= w[1]);
+      const target = era !== null && piece.eras.includes(era) && near ? 1 : 0;
       piece.vis = (piece.vis ?? 0) + (target - (piece.vis ?? 0)) * ease;
       if (Math.abs(target - piece.vis) < 1e-3) piece.vis = target;
     }
@@ -395,6 +471,11 @@ export class WorldProps {
     if (this.city.group.visible) this.city.update(time);
     this.harvester.update(time, dt, this.dust, this.spice);
     this.fleet.update(time, dt, this.dust, this.exhaust);
+    this.storm.update(time, dt, this.dust);
+    this.breach.update(time, dt, this.dust);
+    this.thumper.update(time, this.dust);
+    this.walk.update(time);
+    this.river.update(time);
     for (const piece of this.pieces) piece.creature?.update(dt, duneHeight, this.dust);
 
     // A spice blow where Liet-Kynes died: a pre-spice mass erupting from deep sand, every so often.

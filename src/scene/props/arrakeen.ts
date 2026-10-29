@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { fbm, rng } from '../noise';
+import { rng } from '../noise';
+import { buildRidge } from './ridge';
 import { Thopter } from './thopter';
 
 /**
@@ -89,20 +90,8 @@ export class Arrakeen {
     beaconTop.position.y = 41;
     this.group.add(residency, dome, beaconTop);
 
-    // The Shield Wall: a broken rock range that keeps the worst storms off the city.
-    const ridge = new THREE.PlaneGeometry(560, 130, 140, 26).rotateX(-Math.PI / 2);
-    const p = ridge.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i);
-      const z = p.getZ(i);
-      const across = 1 - Math.pow(z / 65, 2);
-      const crest = 60 + 50 * fbm(x * 0.008 + 3, 1.7, 4);
-      const crag = fbm(x * 0.05, z * 0.05, 3) * 20;
-      const fade = 1 - Math.pow(Math.min(Math.abs(x) / 280, 1), 4);
-      p.setY(i, Math.max(across, 0) ** 0.75 * (crest + crag) * fade - 24);
-    }
-    ridge.computeVertexNormals();
-    const wall = new THREE.Mesh(ridge, new THREE.MeshStandardMaterial({ color: '#5e4031', roughness: 1, flatShading: true }));
+    // The Shield Wall behind the city.
+    const wall = buildRidge({ length: 560, depth: 130 });
     wall.position.z = -235;
     this.group.add(wall);
 

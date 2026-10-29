@@ -1,3 +1,4 @@
+import { RIVER_FOOTPRINT } from './river';
 import type { WormOptions } from './sandworm';
 
 /** A circle of ground a piece occupies, in its local frame (x along the path, -z away from it). */
@@ -18,7 +19,12 @@ export type PieceKind =
   | 'worm'
   | 'jihad-fleet'
   | 'keep'
-  | 'sareer-citadel';
+  | 'sareer-citadel'
+  | 'storm'
+  | 'shield-breach'
+  | 'thumper'
+  | 'desert-walk'
+  | 'idaho-river';
 
 export interface SetPiece {
   kind: PieceKind;
@@ -30,8 +36,18 @@ export interface SetPiece {
    * climbs away) as the camera moves on.
    */
   eras: string[];
+  /**
+   * A scene rather than a landmark: shown only while the camera is within this many events of its
+   * own (inside its eras), so the many scenes of a crowded novel need not all fit at once.
+   */
+  moment?: number;
   /** Preferred distance into the background; placement may push it further or slide it along. */
   lateral: number;
+  /**
+   * Preferred slide along the path from the event; positive is ahead, which is the right of the
+   * frame the event opens on. Placement searches around it.
+   */
+  along?: number;
   /** For things in the sky: height above the path. */
   lift?: number;
   footprint: Circle[];
@@ -48,11 +64,11 @@ export interface SetPiece {
   note: string;
 }
 
-const ARRAKIS = ['imperium', 'muaddib', 'atreides-empire'];
 
 /**
- * Every set piece in the world, in the order placement solves them (big ones first). Each is
- * pinned to an event and shown only in the eras the books put it in.
+ * Every set piece in the world, in the order placement solves them: pieces that belong close to
+ * their own event first, far-off and flexible ones (the storm, the worms) last. Each is pinned to
+ * an event and shown only in the eras the books put it in.
  */
 export const SET_PIECES: SetPiece[] = [
   {
@@ -80,6 +96,15 @@ export const SET_PIECES: SetPiece[] = [
     pad: { tint: '#8d7a66', amount: 0.55 },
     label: { title: 'Arrakeen', sub: 'and the Shield Wall', height: 70 },
     note: "Arrakeen and the Shield Wall: the Atreides seat, later Muad'Dib's capital.",
+  },
+  {
+    kind: 'idaho-river',
+    event: 'leto-death',
+    eras: ['god-emperor'],
+    lateral: 120,
+    footprint: RIVER_FOOTPRINT,
+    label: { title: 'The Idaho River', sub: 'where the God Emperor fell', height: 34 },
+    note: "The Idaho River, where Leto II's wedding procession is ambushed: the bridge is cut, he falls into the water, and his body breaks apart into sandtrout.",
   },
   {
     kind: 'sareer-citadel',
@@ -120,9 +145,44 @@ export const SET_PIECES: SetPiece[] = [
     note: "The Keep in Arrakeen, Muad'Dib's fortress, from which Alia rules as regent for the twins.",
   },
   {
+    kind: 'desert-walk',
+    event: 'paul-walks-desert',
+    eras: ['atreides-empire'],
+    moment: 1,
+    // On the open right of the frame, away from the Jihad's fleet on the left, and clear of
+    // where the path turns back on itself just beyond.
+    along: 90,
+    lateral: 75,
+    // His line of footprints, from near the path out toward the horizon.
+    footprint: [0, 0.25, 0.5, 0.75, 1].map((k) => ({ x: 12 - 20 * k, z: 35 - 70 * k, r: 14 })),
+    note: 'Paul, blind, walking alone into the deep desert as Fremen custom asks of the blind, his footprints filling with sand behind him.',
+  },
+  {
+    kind: 'thumper',
+    event: 'first-worm-ride',
+    eras: ['muaddib'],
+    moment: 1,
+    lateral: 150,
+    // The maker's loop (130 along by 70 across, plus its body); the thumper stands at its near edge.
+    footprint: [-85, 0, 85].map((x) => ({ x, z: 0, r: 95 })),
+    worm: { scale: 1.1, loopAlong: 130, loopAcross: 70, speed: 24, phase: 120, ridden: true },
+    note: "A thumper drumming to call a maker for Paul's sandrider test, and the maker it called: a rider stands on its back behind maker hooks, which hold it at the surface.",
+  },
+  {
+    kind: 'shield-breach',
+    event: 'battle-of-arrakeen',
+    eras: ['muaddib'],
+    moment: 1,
+    lateral: 360,
+    footprint: [-200, -100, 0, 100, 200].map((x) => ({ x, z: 0, r: 70 })),
+    label: { title: 'The Shield Wall', sub: 'breached by family atomics', height: 70 },
+    note: "The Shield Wall, opened with the Atreides family atomics for the Battle of Arrakeen; the Fremen ride in behind the great storm.",
+  },
+  {
     kind: 'imperial-camp',
     event: 'battle-of-arrakeen',
     eras: ['muaddib'],
+    moment: 1,
     lateral: 130,
     footprint: [{ x: 0, z: 0, r: 85 }],
     label: { title: "The Emperor's camp", height: 26 },
@@ -153,7 +213,7 @@ export const SET_PIECES: SetPiece[] = [
   {
     kind: 'crysknife',
     event: 'jamis-duel',
-    eras: ['muaddib', 'atreides-empire'],
+    eras: ['muaddib'],
     lateral: 85,
     footprint: [{ x: 0, z: 0, r: 16 }],
     note: "A crysknife, the Fremen blade made from a sandworm's tooth, as in Paul's duel with Jamis.",
@@ -167,9 +227,20 @@ export const SET_PIECES: SetPiece[] = [
     note: 'A spice blow, the eruption that swallows the dying Liet-Kynes.',
   },
   {
+    kind: 'storm',
+    event: 'stilltent-awakening',
+    eras: ['muaddib'],
+    moment: 1,
+    // Far out on the horizon: it is hundreds of kilometres across in the book.
+    lateral: 900,
+    footprint: [{ x: 0, z: 0, r: 340 }],
+    label: { title: 'Coriolis storm', height: 90 },
+    note: 'A Coriolis storm, one of the great sandstorms of Arrakis. Escaping the Harkonnens, Paul flies their ornithopter into one to shake off pursuit.',
+  },
+  {
     kind: 'worm',
     event: 'harkonnens-take-arrakis',
-    eras: ARRAKIS,
+    eras: ['imperium', 'muaddib'],
     lateral: 260,
     footprint: [{ x: 0, z: 0, r: 118 }],
     worm: { scale: 0.8, loopAlong: 110, loopAcross: 60, speed: 18, phase: 0 },
@@ -177,17 +248,9 @@ export const SET_PIECES: SetPiece[] = [
   },
   {
     kind: 'worm',
-    event: 'first-worm-ride',
-    eras: ARRAKIS,
-    lateral: 120,
-    footprint: [{ x: 0, z: 0, r: 139 }],
-    worm: { scale: 1.1, loopAlong: 130, loopAcross: 70, speed: 24, phase: 120 },
-    note: 'A great maker, like the one Paul calls and rides.',
-  },
-  {
-    kind: 'worm',
     event: 'battle-of-arrakeen',
-    eras: ARRAKIS,
+    eras: ['muaddib'],
+    moment: 1,
     lateral: 150,
     footprint: [{ x: 0, z: 0, r: 128 }],
     worm: { scale: 0.95, loopAlong: 120, loopAcross: 55, speed: 26, phase: 40 },

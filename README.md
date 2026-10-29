@@ -29,23 +29,31 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - a Guild heighliner at the Guild's founding
   - Arrakeen and the Shield Wall, with ornithopters overhead
   - a Harkonnen spice harvester and its carryall, on a spice field
-  - the Emperor's landed frigates at the Battle of Arrakeen
+  - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
+  - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
+  - the Shield Wall breached by the family atomics for the Battle of Arrakeen, with the storm pouring
+    through the gap, and the Emperor's landed frigates on the plain
   - sandworms
   - a crysknife
   - the spice blow that takes Liet-Kynes
   - thinking-machine wreckage from the Jihad
   - Atreides ships lifting off under the green and black banner as Muad'Dib's Jihad sets out
   - the Keep, seat of Alia's regency
+  - blind Paul walking alone into the desert, his footprints filling in behind him
   - Leto II's Citadel inside the walled Sareer, the one desert he kept on a green Arrakis. The terrain is
     masked back to sand inside its wall, and the label notes that his journals are later excavated at
     Dar-es-Balat
+  - the Idaho River, cut into the green, its bridge broken where Leto II fell, his body in the water and
+    the sandtrout leaving it
 
   The major landmarks carry a name in the scene, culled like every other label so they never pile up.
   Banners are plain green and black: that is all Dune gives the Atreides banner. The hawk is the ducal crest,
   not something Herbert puts on the flag.
 
   Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
-  leave, so a snaking path never shows one era's props on another's horizon. The ground changes with the story:
+  leave, so a snaking path never shows one era's props on another's horizon. Scenes (the storm, the thumper,
+  the breach, Paul's walk) are tighter still: they only show near their own event, which lets the crowded
+  stretch of *Dune* fit them all. The ground changes with the story:
   - it greens under Leto II, starting faintly in *Children of Dune*
   - it has no worms during his reign, when he is the last of them
   - it is scorched glass after the Honored Matres burn Rakis
@@ -111,12 +119,15 @@ src/
   scene/         Three.js: desert (terrain ecology shader, forest, spice motes), sky and moons,
                  the path, markers and labels, camera
   scene/props/   set pieces: catalog (what stands where and when), placement solver, heighliner,
-                 Arrakeen, harvester, sandworm, crysknife, wreckage, particles
+                 Arrakeen, harvester, sandworm, crysknife, wreckage, storm, Shield Wall, thumper,
+                 the walk, the Idaho River, particles
   ui/            panel, scrubber, search, about/index dialogs
 ```
 
-To add a set piece, add an entry to `src/scene/props/catalog.ts` with its event, eras and footprint. Placement
-slides it along and away from its event until it clears the path and the other pieces. `catalog.test.ts`
+To add a set piece, add an entry to `src/scene/props/catalog.ts` with its event, eras and footprint (and
+`moment` for a scene that should only show near its event). Placement slides it along and away from its event
+until it clears the path and the other pieces it can be on screen with, trying first only spots inside the
+frame that event opens on. `catalog.test.ts`
 checks that its event and eras exist and that it shows in its own event's era.
 
 The data tests (`src/data/data.test.ts`) check that:
