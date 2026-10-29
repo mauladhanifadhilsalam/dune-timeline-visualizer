@@ -31,8 +31,10 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - a Harkonnen spice harvester and its carryall, on a spice field
   - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
   - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
-  - the Shield Wall breached by the family atomics for the Battle of Arrakeen, with the storm pouring
-    through the gap, and the Emperor's landed frigates on the plain
+  - the Battle of Arrakeen, played through from your arrival: the family atomics flash against the Shield
+    Wall, that stretch of it slumps into rubble and boulders, the storm pours through the gap, and Fremen
+    ride in behind it on five worms, a file of riders on each, to fall on the Emperor's landed frigates,
+    where lasgun fire flickers. Then it sinks back into the sand and replays
   - sandworms
   - a crysknife
   - the spice blow that takes Liet-Kynes
@@ -119,8 +121,9 @@ src/
   scene/         Three.js: desert (terrain ecology shader, forest, spice motes), sky and moons,
                  the path, markers and labels, camera
   scene/props/   set pieces: catalog (what stands where and when), placement solver, heighliner,
-                 Arrakeen, harvester, sandworm, crysknife, wreckage, storm, Shield Wall, thumper,
-                 the walk, the Idaho River, particles
+                 Arrakeen, harvester, sandworm, crysknife, wreckage, storm, Shield Wall and the
+                 Battle of Arrakeen (collapse, worm charge), thumper, the walk, the Idaho River,
+                 particles
   ui/            panel, scrubber, search, about/index dialogs
 ```
 

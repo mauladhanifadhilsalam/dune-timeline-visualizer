@@ -176,7 +176,7 @@ export const SET_PIECES: SetPiece[] = [
     lateral: 360,
     footprint: [-200, -100, 0, 100, 200].map((x) => ({ x, z: 0, r: 70 })),
     label: { title: 'The Shield Wall', sub: 'breached by family atomics', height: 70 },
-    note: "The Shield Wall, opened with the Atreides family atomics for the Battle of Arrakeen; the Fremen ride in behind the great storm.",
+    note: "The Shield Wall, opened with the Atreides family atomics for the Battle of Arrakeen: the wall comes down, the great storm pours through, and the Fremen ride in behind it on maker-back to fall on the Emperor's camp.",
   },
   {
     kind: 'imperial-camp',
@@ -245,16 +245,6 @@ export const SET_PIECES: SetPiece[] = [
     footprint: [{ x: 0, z: 0, r: 118 }],
     worm: { scale: 0.8, loopAlong: 110, loopAcross: 60, speed: 18, phase: 0 },
     note: 'Worm sign near the harvester.',
-  },
-  {
-    kind: 'worm',
-    event: 'battle-of-arrakeen',
-    eras: ['muaddib'],
-    moment: 1,
-    lateral: 150,
-    footprint: [{ x: 0, z: 0, r: 128 }],
-    worm: { scale: 0.95, loopAlong: 120, loopAcross: 55, speed: 26, phase: 40 },
-    note: 'Fremen worm-riders charging the Imperial camp.',
   },
   {
     kind: 'worm',

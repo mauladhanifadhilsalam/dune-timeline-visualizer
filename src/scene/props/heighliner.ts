@@ -68,13 +68,16 @@ export class Heighliner {
  * The Emperor's camp on the plain before Arrakeen: frigates set down in a ring, lit, with his
  * metal hut at the centre. Herbert puts the Sardaukar fleet on the ground for the battle.
  */
+/** The ring the Emperor's frigates stand on, about the camp's centre: semi-axes and count. */
+export const CAMP_RING = { x: 62, z: 44, frigates: 7 };
+
 export function buildImperialCamp(): THREE.Group {
   const g = new THREE.Group();
   const hullGeo = new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2);
   const fm = new THREE.MeshStandardMaterial({ color: '#4a434d', metalness: 0.55, roughness: 0.45 });
   const lamp = glow('#ffcf8a', 2.2);
-  for (let k = 0; k < 7; k++) {
-    const a = (k / 7) * Math.PI * 2;
+  for (let k = 0; k < CAMP_RING.frigates; k++) {
+    const a = (k / CAMP_RING.frigates) * Math.PI * 2;
     const f = new THREE.Group();
     const hullF = new THREE.Mesh(hullGeo, fm);
     hullF.scale.set(17, 11, 12);
@@ -82,7 +85,7 @@ export function buildImperialCamp(): THREE.Group {
     ring.scale.set(17.2, 12.2, 12.2);
     ring.position.y = 0.6;
     f.add(hullF, ring);
-    f.position.set(Math.cos(a) * 62, -1, Math.sin(a) * 44);
+    f.position.set(Math.cos(a) * CAMP_RING.x, -1, Math.sin(a) * CAMP_RING.z);
     f.rotation.y = -a;
     g.add(f);
   }

@@ -7,7 +7,7 @@ import { Arrakeen } from './arrakeen';
 import { bannerClock } from './banner';
 import { SareerCitadel, buildKeep } from './citadels';
 import { JihadFleet } from './jihad-fleet';
-import { ShieldWallBreach } from './ridge';
+import { ShieldWallBreach } from './battle';
 import { IdahoRiver } from './river';
 import { CoriolisStorm } from './storm';
 import { Thumper } from './thumper';
@@ -88,6 +88,8 @@ export class WorldProps {
   private citadelPiece: Piece | null = null;
   private readonly storm = new CoriolisStorm();
   private readonly breach = new ShieldWallBreach();
+  private breachPiece: Piece | null = null;
+  private campPiece: Piece | null = null;
   private readonly thumper = new Thumper();
   private readonly walk = new DesertWalk();
   private readonly river = new IdahoRiver();
@@ -142,6 +144,7 @@ export class WorldProps {
           break;
         case 'imperial-camp':
           piece.object = buildImperialCamp();
+          this.campPiece = piece;
           break;
         case 'harvester':
           piece.object = this.harvester.group;
@@ -175,6 +178,8 @@ export class WorldProps {
           break;
         case 'shield-breach':
           piece.object = this.breach.group;
+          piece.fit = (c, q) => this.breach.fit(c, q);
+          this.breachPiece = piece;
           break;
         case 'thumper':
           // The thumper stands at the near edge of the loop the maker it called is swimming.
@@ -346,6 +351,8 @@ export class WorldProps {
       piece.fit?.(center, quat);
       if (piece === this.blow) this.blowAt.copy(center);
     }
+    // The Fremen ride from the breach at the Emperor's camp, wherever placement put the two.
+    if (this.breachPiece?.base && this.campPiece?.base) this.breach.aim(this.campPiece.base.center);
     this.apply();
     this.desert.setEcology(this.greenBand(p, res), this.scorchBand(p));
   }
@@ -472,7 +479,7 @@ export class WorldProps {
     this.harvester.update(time, dt, this.dust, this.spice);
     this.fleet.update(time, dt, this.dust, this.exhaust);
     this.storm.update(time, dt, this.dust);
-    this.breach.update(time, dt, this.dust);
+    this.breach.update(dt, this.dust, this.exhaust);
     this.thumper.update(time, this.dust);
     this.walk.update(time);
     this.river.update(time);

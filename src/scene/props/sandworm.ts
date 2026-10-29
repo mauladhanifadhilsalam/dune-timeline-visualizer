@@ -79,6 +79,29 @@ export function wormBodyAssets(): { segment: THREE.BufferGeometry; material: THR
   return { segment: a.segment, material: a.body };
 }
 
+/** A worm's head, radius 1, mouth facing +Z: lip, glowing maw and two rings of crystal teeth. */
+export function buildWormHead(): THREE.Group {
+  const a = assets();
+  const lip = new THREE.Mesh(a.lip, a.body);
+  const maw = new THREE.Mesh(a.maw, a.mawMat);
+  maw.position.z = -0.15;
+  // Two rings of crystal teeth, all leaning in toward the throat.
+  const teeth = new THREE.InstancedMesh(a.tooth, a.toothMat, 36);
+  const throat = new THREE.Vector3(0, 0, -0.9);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < 36; i++) {
+    const ring = i < 22 ? 0 : 1;
+    const n = ring ? 14 : 22;
+    const ang = ((ring ? i - 22 : i) / n) * Math.PI * 2 + ring * 0.2;
+    const r = ring ? 0.62 : 0.92;
+    dummy.position.set(Math.cos(ang) * r, Math.sin(ang) * r, 0.12 - ring * 0.28);
+    dummy.lookAt(throat);
+    dummy.updateMatrix();
+    teeth.setMatrixAt(i, dummy.matrix);
+  }
+  return new THREE.Group().add(lip, maw, teeth);
+}
+
 /**
  * Shai-Hulud. The body follows the head along one closed curve (a sine wave through the sand
  * surface, swept around an ellipse), so it surfaces in arcs and dives again like a sea creature.
@@ -87,7 +110,7 @@ export function wormBodyAssets(): { segment: THREE.BufferGeometry; material: THR
 export class Sandworm {
   readonly group = new THREE.Group();
   private readonly body: THREE.InstancedMesh;
-  private readonly head = new THREE.Group();
+  private readonly head = buildWormHead();
   private readonly center = new THREE.Vector3();
   private readonly along = new THREE.Vector3(1, 0, 0);
   private readonly across = new THREE.Vector3(0, 0, 1);
@@ -108,23 +131,6 @@ export class Sandworm {
       c.set('#b39a7c').offsetHSL(0, 0, (i % 2 ? -0.04 : 0.02) - (i / SEGMENTS) * 0.1);
       this.body.setColorAt(i, c);
     }
-    const lip = new THREE.Mesh(a.lip, a.body);
-    const maw = new THREE.Mesh(a.maw, a.mawMat);
-    maw.position.z = -0.15;
-    // Two rings of crystal teeth, all leaning in toward the throat.
-    const teeth = new THREE.InstancedMesh(a.tooth, a.toothMat, 36);
-    const throat = new THREE.Vector3(0, 0, -0.9);
-    for (let i = 0; i < 36; i++) {
-      const ring = i < 22 ? 0 : 1;
-      const n = ring ? 14 : 22;
-      const ang = ((ring ? i - 22 : i) / n) * Math.PI * 2 + ring * 0.2;
-      const r = ring ? 0.62 : 0.92;
-      this.dummy.position.set(Math.cos(ang) * r, Math.sin(ang) * r, 0.12 - ring * 0.28);
-      this.dummy.lookAt(throat);
-      this.dummy.updateMatrix();
-      teeth.setMatrixAt(i, this.dummy.matrix);
-    }
-    this.head.add(lip, maw, teeth);
     this.group.add(this.body, this.head);
     this.s = o.phase;
 
