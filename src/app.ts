@@ -782,8 +782,13 @@ export function createApp(): void {
   world.controls.target.copy(start.target);
   world.controls.autoRotate = !reducedMotion.matches;
   world.controls.autoRotateSpeed = 0.25;
+  // The scene's names would show through the title card and over its text: they wait until the
+  // desert is entered.
+  const labels = world.labelRenderer.domElement;
+  labels.classList.add('is-muted');
 
   function enter(): void {
+    labels.classList.remove('is-muted');
     intro.classList.add('is-gone');
     window.setTimeout(() => (intro.hidden = true), 700);
     world.controls.autoRotate = false;

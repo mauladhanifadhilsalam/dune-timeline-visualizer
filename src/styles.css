@@ -113,6 +113,10 @@ button {
   top: 0;
   left: 0;
   pointer-events: none;
+  transition: opacity 0.7s ease;
+}
+.stage .labels.is-muted {
+  opacity: 0;
 }
 
 /* ── Shared controls ──────────────────────────────────────────────────────────────────── */
@@ -1043,7 +1047,8 @@ kbd {
   display: grid;
   place-items: center;
   padding: 24px 16px;
-  background: radial-gradient(ellipse at 50% 60%, rgba(18, 13, 24, 0.35), rgba(10, 7, 14, 0.82) 75%);
+  /* Darkest where nothing is written; enough behind the text that the scenery under it stays quiet. */
+  background: radial-gradient(ellipse at 50% 50%, rgba(14, 10, 20, 0.55), rgba(10, 7, 14, 0.85) 75%);
   transition: opacity 0.7s ease;
 }
 .intro.is-gone {
@@ -1252,7 +1257,8 @@ kbd {
   .btn-label {
     display: none;
   }
-  .btn {
+  /* The toolbar's buttons drop their labels and become round icons; buttons with text keep it. */
+  .controls .btn {
     width: 36px;
     padding: 0;
     justify-content: center;
