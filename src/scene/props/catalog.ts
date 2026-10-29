@@ -1,7 +1,6 @@
 import { ARRAKEEN_FIELD } from './arrakeen';
 import { RIVER_FOOTPRINT } from './river';
 import { SIETCH_MOUTH } from './sietch';
-import { WEDDING_ROAD } from './wedding';
 import type { WormOptions } from './sandworm';
 
 /** A circle of ground a piece occupies, in its local frame (x along the path, -z away from it). */
@@ -132,7 +131,10 @@ export const SET_PIECES: SetPiece[] = [
     kind: 'idaho-river',
     event: 'leto-death',
     eras: ['god-emperor'],
-    lateral: 120,
+    // Its bend about 150 behind the event, across a plain the camera can see over; slid along so
+    // the bridge stands left of the event's light, in the part of the view its card leaves free.
+    along: 70,
+    lateral: 245,
     footprint: RIVER_FOOTPRINT,
     label: { title: 'The Idaho River', sub: 'where the God Emperor fell', height: 34 },
     note: "The Idaho River, where Leto II's wedding procession is ambushed: the bridge is cut, he falls into the water, and his body breaks apart into sandtrout.",
@@ -453,10 +455,12 @@ export const SET_PIECES: SetPiece[] = [
     kind: 'wedding',
     event: 'hwi-noree',
     eras: ['god-emperor'],
-    moment: 1,
-    lateral: 100,
-    // The road, across the view and away toward the river.
-    footprint: WEDDING_ROAD.map(([x, z]) => ({ x, z, r: 30 })),
+    // Only around its own event: by Leto II's death the bridge is cut.
+    moment: 0,
+    // On the Royal Road through the river's bridge.
+    site: { in: 'idaho-river', x: 0, z: 0 },
+    lateral: 0,
+    footprint: [{ x: 0, z: 0, r: 30 }],
     note: "The wedding procession of Leto II and Hwi Noree: the Royal Cart at its head and his Fish Speakers behind, on the road to the bridge over the Idaho River, where it will be ambushed.",
   },
 ];

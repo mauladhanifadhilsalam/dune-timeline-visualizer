@@ -1,39 +1,86 @@
 import * as THREE from 'three';
-import { RIVER_POINTS, duneHeight, type RiverCourse } from '../desert';
+import { RIVER_POINTS, duneHeight, riverGround, type RiverCourse } from '../desert';
 import { wormBodyAssets } from './sandworm';
 
 /**
- * The course in the piece's local frame (x along the path, -z away from it). It comes down out of
- * the background toward the viewer, then turns to run off alongside the path: seen from the low
- * camera, a river across the view is a thin stripe, one coming at it reads as a river.
+ * The course in the piece's local frame (x along the path, -z away from it): a U opening away from
+ * the path. It comes down out of the background on the right toward the viewer, bends nearest the
+ * path, and runs back out on the left. Seen from the low camera a river across the view is a thin
+ * stripe; one coming at it reads as a river. It never runs alongside the path, which elsewhere
+ * bends back toward it.
  */
 const COURSE: [number, number][] = [
-  [-130, -330],
-  [-75, -250],
-  [-30, -170],
-  [-8, -95],
-  [12, -30],
-  [60, 8],
-  [150, 26],
-  [270, 30],
-  [390, 18],
+  [230, -200],
+  [170, -110],
+  [100, -10],
+  [40, 65],
+  [0, 95],
+  [-60, 90],
+  [-140, 55],
+  [-220, 10],
 ];
-/** Where the bridge crosses: on the stretch running toward the viewer, so it is seen side on. */
-const BRIDGE: [number, number] = [0, -60];
+/**
+ * Where the bridge crosses: on the left arm, well to the side of the event's light and label, which
+ * stand in the middle of the view; and on the left, because the event's card covers the right.
+ */
+const BRIDGE: [number, number] = [-110, 68];
 const HALF_WIDTH = 21;
 const BANK = 34;
+/** The bridge: deck height above the water, and how far out its abutments stand from its middle. */
+const DECK_Y = 14;
+const ABUTMENT = 47;
+/** The Royal Road: half its width, its run either side of the bridge, and its ramps up to the deck. */
+const ROAD_HALF = 6;
+const ROAD_BACK = 260;
+const ROAD_FRONT = 150;
+const RAMP = 70;
+const ROAD_STEPS = 44;
+
+/**
+ * The bridge and the Royal Road through it, in the piece's frame: fixed by the course, so placement
+ * can know the road's ground before anything is built. The road runs straight along the deck, from
+ * deep inside the U, across the river and on toward the path, so whoever walks it comes toward the
+ * viewer. The river flows down the left arm, round the bend and away up the right, so what falls
+ * from the bridge drifts toward the bend, in open water in front of everything.
+ */
+export const RIVER_ROAD = (() => {
+  const curve = new THREE.CatmullRomCurve3(COURSE.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+  let best = 0;
+  let bestD = Infinity;
+  const p = new THREE.Vector3();
+  for (let i = 0; i <= 400; i++) {
+    curve.getPointAt(i / 400, p);
+    const d = Math.hypot(p.x - BRIDGE[0], p.z - BRIDGE[1]);
+    if (d < bestD) {
+      bestD = d;
+      best = i / 400;
+    }
+  }
+  const at = curve.getPointAt(best);
+  // Against course order: the course runs right to left.
+  const flow = curve.getTangentAt(best).setY(0).normalize().negate();
+  // The deck runs across the flow; the road's "back" end is the one away from the path.
+  const deck = new THREE.Vector3(flow.z, 0, -flow.x);
+  if (deck.z > 0) deck.negate();
+  const point = (t: number): [number, number] => [at.x + deck.x * t, at.z + deck.z * t];
+  return { curve, at, flow, deck, point, from: point(ROAD_BACK), to: point(-ROAD_FRONT) };
+})();
 const TROUT = 72;
 /** Seconds for the sandtrout to spread from the body and fade. */
 const SPREAD = 16;
 
-/** Circles covering the course, for placement (river plus banks). */
-export const RIVER_FOOTPRINT = COURSE.map(([x, z]) => ({ x, z, r: HALF_WIDTH + BANK }));
+/** Circles covering the course (river plus banks) and the road's ends, for placement. */
+export const RIVER_FOOTPRINT = [
+  ...COURSE.map(([x, z]) => ({ x, z, r: HALF_WIDTH + BANK })),
+  ...[RIVER_ROAD.from, RIVER_ROAD.to].map(([x, z]) => ({ x, z, r: 22 })),
+];
 
 /**
- * The Idaho River in God Emperor of Dune: Leto II's wedding procession crosses it, the bridge is cut
- * with a lasgun, and the God Emperor falls into the water, which is death to the sandtrout skin.
- * His body breaks apart, the sandtrout spreading away into the current. The terrain shader cuts
- * the channel; this draws the water, the broken bridge, his body and the trout.
+ * The Idaho River in God Emperor of Dune: Leto II's wedding procession crosses it on the Royal
+ * Road, the bridge is cut with a lasgun, and the God Emperor falls into the water, which is death to
+ * the sandtrout skin. His body breaks apart, the sandtrout spreading away into the current. The
+ * terrain shader levels the plain and cuts the channel; this draws the water, the road, the bridge
+ * (whole, then cut), his body and the trout.
  */
 export class IdahoRiver {
   readonly group = new THREE.Group();
@@ -48,17 +95,22 @@ export class IdahoRiver {
   private readonly body: THREE.InstancedMesh;
   private readonly trout: THREE.InstancedMesh;
   private readonly troutSeed: { angle: number; reach: number; offset: number; size: number }[] = [];
-  private readonly flow = new THREE.Vector3();
-  private readonly bridgeAt = new THREE.Vector3();
+  private readonly flow = RIVER_ROAD.flow;
+  private readonly bridgeAt = RIVER_ROAD.at;
+  private readonly road: THREE.Mesh;
   private levelLocal = 0;
+  private center = new THREE.Vector3(NaN, 0, 0);
+  private quat = new THREE.Quaternion();
   /** World-space course for the terrain, set by fit(). */
   course: Omit<RiverCourse, 'amount'> | null = null;
+  /** The Royal Road's two ends in the world, for the forest to be cleared along it; set by fit(). */
+  roadEnds: [THREE.Vector2, THREE.Vector2] | null = null;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly v = new THREE.Vector3();
 
   constructor() {
-    this.curve = new THREE.CatmullRomCurve3(COURSE.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+    this.curve = RIVER_ROAD.curve;
 
     // Water: a ribbon along the curve, fading out at both ends so the river has no hard edges.
     const N = 160;
@@ -127,10 +179,10 @@ export class IdahoRiver {
       b.rotation.z = rz;
       to.add(b);
     };
-    const deckY = 14;
+    const deckY = DECK_Y;
     for (const s of [-1, 1]) {
       box(this.bridge, 6, deckY + 8, 9, s * 19, deckY / 2 - 4, 0); // pier in the water
-      box(this.bridge, 9, deckY + 10, 12, s * 47, deckY / 2 - 5, 0); // abutment on the bank
+      box(this.bridge, 9, deckY + 10, 12, s * ABUTMENT, deckY / 2 - 5, 0); // abutment on the bank
       box(this.cut, 38, 3, 10, s * 28, deckY, 0); // deck
       box(this.cut, 38, 2.2, 0.8, s * 28, deckY + 2.6, 4.6); // parapets
       box(this.cut, 38, 2.2, 0.8, s * 28, deckY + 2.6, -4.6);
@@ -146,7 +198,8 @@ export class IdahoRiver {
     const { segment, material } = wormBodyAssets();
     this.body = new THREE.InstancedMesh(segment, material, 12);
     const c = new THREE.Color();
-    for (let i = 0; i < 12; i++) this.body.setColorAt(i, c.set('#8a7a68').offsetHSL(0, 0, i % 2 ? -0.04 : 0.02));
+    // Pale against the dark water, so it reads from the path.
+    for (let i = 0; i < 12; i++) this.body.setColorAt(i, c.set('#c2ae92').offsetHSL(0, 0, i % 2 ? -0.05 : 0.02));
     this.group.add(this.body);
 
     // Sandtrout leaving the body.
@@ -165,10 +218,103 @@ export class IdahoRiver {
     }
     this.trout.frustumCulled = false;
     this.group.add(this.trout);
+
+    // The Royal Road: a paved causeway either side of the bridge, its sides walled down to the
+    // ground, rising on ramps to the deck. Heights are filled in by fit(), once the ground is known.
+    const strips = 2;
+    const perStep = 4; // top-left, top-right, foot-left, foot-right
+    const rpos = new Float32Array(strips * (ROAD_STEPS + 1) * perStep * 3);
+    const rcol = new Float32Array(rpos.length);
+    const ridx: number[] = [];
+    const paving = new THREE.Color('#b3a07f');
+    const wall = new THREE.Color('#7d6b55');
+    for (let k = 0; k < strips; k++) {
+      for (let i = 0; i <= ROAD_STEPS; i++) {
+        const v = (k * (ROAD_STEPS + 1) + i) * perStep;
+        paving.toArray(rcol, v * 3);
+        paving.toArray(rcol, (v + 1) * 3);
+        wall.toArray(rcol, (v + 2) * 3);
+        wall.toArray(rcol, (v + 3) * 3);
+        if (i === ROAD_STEPS) continue;
+        const n = v + perStep;
+        ridx.push(v, n, v + 1, v + 1, n, n + 1); // paving
+        ridx.push(v + 2, n + 2, v, v, n + 2, n); // left wall
+        ridx.push(v + 1, n + 1, v + 3, v + 3, n + 1, n + 3); // right wall
+      }
+    }
+    const roadGeo = new THREE.BufferGeometry();
+    roadGeo.setAttribute('position', new THREE.BufferAttribute(rpos, 3));
+    roadGeo.setAttribute('color', new THREE.BufferAttribute(rcol, 3));
+    roadGeo.setIndex(ridx);
+    this.road = new THREE.Mesh(
+      roadGeo,
+      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true, side: THREE.DoubleSide }),
+    );
+    this.road.frustumCulled = false;
+    this.group.add(this.road);
+  }
+
+  /** Ground height at a local point, with the plain and the channel cut, in local units. */
+  private groundLocal(x: number, z: number): number {
+    const w = this.v.set(x, 0, z).applyQuaternion(this.quat).add(this.center);
+    return (this.course ? riverGround(w.x, w.z, this.course) : duneHeight(w.x, w.z)) - this.center.y;
+  }
+
+  /**
+   * Height of the Royal Road's surface at a local point on it: the deck over the river, ramps up to
+   * it from either bank, and the ground (never below it) beyond. Valid after fit().
+   */
+  roadY(x: number, z: number): number {
+    const t = Math.abs((x - this.bridgeAt.x) * RIVER_ROAD.deck.x + (z - this.bridgeAt.z) * RIVER_ROAD.deck.z);
+    const top = this.levelLocal + DECK_Y + 1.5;
+    if (t <= ABUTMENT) return top;
+    const ground = this.groundLocal(x, z) + 0.3;
+    const ramp = top + (ground - top) * THREE.MathUtils.smoothstep(t, ABUTMENT, ABUTMENT + RAMP);
+    return Math.max(ground, ramp);
+  }
+
+  /** The road's route through the bridge, from its back end to its front, for those who walk it. */
+  roadRoute(): [number, number][] {
+    return [RIVER_ROAD.point(ROAD_BACK), RIVER_ROAD.point(0), RIVER_ROAD.point(-ROAD_FRONT)];
+  }
+
+  private fitRoad(): void {
+    const pos = this.road.geometry.attributes.position as THREE.BufferAttribute;
+    const { deck, flow, at } = RIVER_ROAD;
+    // Either side of the bridge: from its far end in to the abutment.
+    const runs: [number, number][] = [
+      [ROAD_BACK, ABUTMENT - 2],
+      [-ROAD_FRONT, -(ABUTMENT - 2)],
+    ];
+    runs.forEach(([t0, t1], k) => {
+      for (let i = 0; i <= ROAD_STEPS; i++) {
+        const t = t0 + ((t1 - t0) * i) / ROAD_STEPS;
+        const cx = at.x + deck.x * t;
+        const cz = at.z + deck.z * t;
+        const v = (k * (ROAD_STEPS + 1) + i) * 4;
+        for (const [j, side] of [
+          [0, -1],
+          [1, 1],
+        ] as const) {
+          const x = cx + flow.x * side * ROAD_HALF;
+          const z = cz + flow.z * side * ROAD_HALF;
+          const y = this.roadY(cx, cz);
+          pos.setXYZ(v + j, x, y, z);
+          pos.setXYZ(v + 2 + j, x, Math.min(this.groundLocal(x, z), y) - 1.5, z);
+        }
+      }
+    });
+    pos.needsUpdate = true;
+    this.road.geometry.computeVertexNormals();
+    this.road.geometry.computeBoundingSphere();
   }
 
   /** Set the water level and the world course once the piece's place is known. */
   fit(center: THREE.Vector3, quat: THREE.Quaternion): void {
+    // Layout runs every frame of a scale morph; only a real move needs the ground re-read.
+    if (center.distanceTo(this.center) < 0.5 && quat.angleTo(this.quat) < 1e-4) return;
+    this.center = center.clone();
+    this.quat = quat.clone();
     // The water sits just under the lowest ground along the course, so it never floats.
     const p = new THREE.Vector3();
     let low = Infinity;
@@ -188,46 +334,32 @@ export class IdahoRiver {
       points.push(new THREE.Vector2(p.x, p.z));
     }
     this.course = { points, halfWidth: HALF_WIDTH, bank: BANK, level };
+    const end = ([x, z]: [number, number]) => {
+      const w = new THREE.Vector3(x, 0, z).applyQuaternion(quat).add(center);
+      return new THREE.Vector2(w.x, w.z);
+    };
+    this.roadEnds = [end(RIVER_ROAD.from), end(RIVER_ROAD.to)];
+    this.fitRoad();
 
     // Bridge where the river runs toward the viewer, deck across it.
-    const u = this.nearestU(...BRIDGE);
-    this.curve.getPointAt(u, this.bridgeAt);
-    this.curve.getTangentAt(u, this.flow);
-    this.flow.y = 0;
-    this.flow.normalize();
-    if (this.flow.z < 0) this.flow.negate(); // downstream = toward the path side
     this.bridge.position.set(this.bridgeAt.x, this.levelLocal, this.bridgeAt.z);
     // Deck (local X of the bridge) across the flow: rotation.y = θ sends +X to (cos θ, -sin θ),
     // which with θ = atan2(fx, fz) is (fz, -fx), perpendicular to the flow (fx, fz).
     this.bridge.rotation.y = Math.atan2(this.flow.x, this.flow.z);
 
-    // His body from just below the bridge, downstream.
+    // His body from just below the bridge, downstream: drawn larger than life like everything here,
+    // and riding high in the current, so it reads from the path.
     for (let i = 0; i < 12; i++) {
-      const r = 4.6 - i * 0.18;
-      const along = 9 + i * 4.2;
+      const r = 7.5 - i * 0.32;
+      const along = 10 + i * 6.4;
       const a = this.v.copy(this.bridgeAt).addScaledVector(this.flow, along);
-      a.x += Math.sin(i * 0.5) * 2.5;
-      a.y = this.levelLocal - r * 0.25 - i * 0.12;
+      a.x += Math.sin(i * 0.5) * 3.5;
+      a.y = this.levelLocal - r * 0.05 - i * 0.15;
       this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.flow);
-      this.m.compose(a, this.q, new THREE.Vector3(r, r * 0.9, 4.6));
+      this.m.compose(a, this.q, new THREE.Vector3(r, r * 0.9, 7));
       this.body.setMatrixAt(i, this.m);
     }
     this.body.instanceMatrix.needsUpdate = true;
-  }
-
-  private nearestU(x: number, z: number): number {
-    let best = 0;
-    let bestD = Infinity;
-    const p = new THREE.Vector3();
-    for (let i = 0; i <= 200; i++) {
-      this.curve.getPointAt(i / 200, p);
-      const d = Math.hypot(p.x - x, p.z - z);
-      if (d < bestD) {
-        bestD = d;
-        best = i / 200;
-      }
-    }
-    return best;
   }
 
   /** Before Leto II's death the bridge stands whole and the river is empty; after, it is cut. */
@@ -240,8 +372,9 @@ export class IdahoRiver {
   }
 
   update(time: number): void {
-    if (!this.group.visible || !this.broken) return;
+    if (!this.group.visible) return;
     this.waterTime.value = time;
+    if (!this.broken) return;
     const start = this.v.copy(this.bridgeAt).addScaledVector(this.flow, 20);
     for (let i = 0; i < TROUT; i++) {
       const s = this.troutSeed[i];

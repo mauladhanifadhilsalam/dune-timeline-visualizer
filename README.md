@@ -55,10 +55,10 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - Leto II's Citadel inside the walled Sareer, the one desert he kept on a green Arrakis. The terrain is
     masked back to sand inside its wall, and the label notes that his journals are later excavated at
     Dar-es-Balat
-  - Leto II and Hwi Noree's wedding procession setting out, his Royal Cart at its head and the Fish Speakers
-    behind, on a road cleared through the forest toward the river
-  - the Idaho River, cut into the green. Its bridge stands whole through his reign; from his death it is cut,
-    his body in the water and the sandtrout leaving it
+  - the Idaho River, winding across a green flood plain (levelled, so no dune hides it from the path), with
+    the Royal Road crossing it on a stone bridge. At Hwi Noree's event the wedding procession walks the road,
+    his Royal Cart at its head and the Fish Speakers behind, up the ramp and over the bridge. From his death
+    the bridge is cut, his pale body lies in the current below it and the sandtrout spread from it
   - ships of the Scattering lifting off after his death
   - on Rakis in *Heretics*, pilgrims walking to Keen under a Priesthood ornithopter, and then Keen in ruins and
     burning as the Honored Matres destroy the planet, their attack ships passing over; on Chapterhouse, the

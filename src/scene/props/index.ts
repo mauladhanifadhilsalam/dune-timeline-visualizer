@@ -21,7 +21,7 @@ import { ArrakeenFalls } from './fall';
 import { Fires } from './fire';
 import { RakisBurning } from './rakis';
 import { SandtroutRun } from './runner';
-import { WEDDING_ROAD, WeddingProcession } from './wedding';
+import { WeddingProcession } from './wedding';
 import { Sietch } from './sietch';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
@@ -145,9 +145,10 @@ export class WorldProps {
   );
   private raidPiece: Piece | null = null;
   private readonly run = new SandtroutRun();
-  private readonly wedding = new WeddingProcession();
-  private weddingPiece: Piece | null = null;
-  private weddingRoad: [THREE.Vector2, THREE.Vector2] | null = null;
+  private readonly wedding = new WeddingProcession({
+    route: () => this.river.roadRoute(),
+    heightAt: (x, z) => this.river.roadY(x, z),
+  });
   private readonly rakis = new RakisBurning();
   /** Where on the path the river's bridge is cut: halfway from the event before Leto's death. */
   private riverBreakT = Infinity;
@@ -300,16 +301,8 @@ export class WorldProps {
           break;
         case 'wedding':
           piece.object = this.wedding.group;
-          piece.fit = (c, q) => {
-            this.wedding.fit(c, q);
-            // The forest is cleared along its road.
-            const end = (p: [number, number]) => {
-              const w = new THREE.Vector3(p[0], 0, p[1]).applyQuaternion(q).add(c);
-              return new THREE.Vector2(w.x, w.z);
-            };
-            this.weddingRoad = [end(WEDDING_ROAD[0]), end(WEDDING_ROAD[WEDDING_ROAD.length - 1])];
-          };
-          this.weddingPiece = piece;
+          // In the river's frame (a site in it), which is laid out first.
+          piece.fit = (c, q) => this.wedding.fit(c, q);
           break;
         case 'rakis-burning':
           piece.object = this.rakis.group;
@@ -620,7 +613,8 @@ export class WorldProps {
     // The river's channel is cut only while it is in view: Rakis, later, is desert again.
     const rk = this.riverPiece ? this.amount(this.riverPiece) : 0;
     this.desert.setRiver(this.river.course && rk > 0.001 ? { ...this.river.course, amount: rk } : null);
-    this.desert.setRoad(this.weddingRoad, this.weddingPiece ? this.amount(this.weddingPiece) : 0);
+    // The forest is cleared along the Royal Road while the river is there.
+    this.desert.setRoad(this.river.roadEnds, rk);
   }
 
   /**

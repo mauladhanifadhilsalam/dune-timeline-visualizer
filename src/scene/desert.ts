@@ -39,6 +39,13 @@ const warp = (u: number) => 0.3 * u + 0.7 * u * u * u * u * u;
 export const MAX_PADS = 4;
 /** Points in the river course the terrain carves (a polyline sampled from a smooth curve). */
 export const RIVER_POINTS = 16;
+/**
+ * The river's plain: how far beyond its banks the dunes are levelled, and how far above the water
+ * they are left. A river through Leto II's green has a flood plain; and without one, the dunes
+ * between the path and the water hide the river from the low camera.
+ */
+export const RIVER_PLAIN = 110;
+const PLAIN_RISE = 2.5;
 
 /** A river channel cut into the terrain, in world coordinates. */
 export interface RiverCourse {
@@ -54,6 +61,35 @@ export interface RiverCourse {
 /** A t-range on the path [rampIn0, rampIn1, rampOut0, rampOut1]; t outside [0, 1] disables it. */
 export type Band = [number, number, number, number];
 const OFF: Band = [2, 2, 3, 3];
+
+/** Distance from (x, z) to a polyline. */
+function polylineDistance(x: number, z: number, pts: readonly THREE.Vector2[]): number {
+  let d = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i].x;
+    const az = pts[i].y;
+    const bx = pts[i + 1].x - ax;
+    const bz = pts[i + 1].y - az;
+    const h = Math.min(Math.max(((x - ax) * bx + (z - az) * bz) / Math.max(bx * bx + bz * bz, 1e-4), 0), 1);
+    d = Math.min(d, Math.hypot(x - ax - bx * h, z - az - bz * h));
+  }
+  return d;
+}
+
+/**
+ * The ground at (x, z) with a river's plain levelled and its channel cut, as the terrain shader
+ * does them (at full strength): for things that must stand on that ground, like a road.
+ */
+export function riverGround(x: number, z: number, r: Omit<RiverCourse, 'amount'>): number {
+  const h = duneHeight(x, z);
+  const d = polylineDistance(x, z, r.points);
+  const bank = r.halfWidth + r.bank;
+  const plain = 1 - smoothstep(bank, bank + RIVER_PLAIN, d);
+  let y = h + (Math.min(h, r.level + PLAIN_RISE) - h) * plain;
+  const rm = 1 - smoothstep(r.halfWidth, bank, d);
+  y += (Math.min(y, r.level - 5) - y) * rm;
+  return y;
+}
 
 /** A flattened, tinted disc of ground for a city or a spice field. */
 export interface Pad {
@@ -124,6 +160,11 @@ const ECO_COMMON = /* glsl */ `
   float riverMask(vec2 p) {
     return uRiver.z * (1.0 - smoothstep(uRiver.x, uRiver.x + uRiver.w, riverDist(p, 0.0)));
   }
+  // 1 on the river's plain, falling to 0 a little way beyond it.
+  float riverPlain(vec2 p) {
+    float bank = uRiver.x + uRiver.w;
+    return uRiver.z * (1.0 - smoothstep(bank, bank + ${RIVER_PLAIN.toFixed(1)}, riverDist(p, ${RIVER_PLAIN.toFixed(1)})));
+  }
   float desertMask(vec2 xz) {
     if (uDesert.z <= 0.0) return 0.0;
     return uDesert.w * (1.0 - smoothstep(uDesert.z - 14.0, uDesert.z + 4.0, length(xz - uDesert.xy)));
@@ -162,7 +203,8 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
         pmMax = max(pmMax, pms[i]);
       }
       float rm = riverMask(position.xz);
-      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), max(pmMax, rm * 0.6)));`,
+      float rp = riverPlain(position.xz);
+      objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), max(max(pmMax, rm * 0.6), rp * 0.8)));`,
     )
     .replace(
       '#include <begin_vertex>',
@@ -175,7 +217,9 @@ function terrainShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
         vPadCol += uPadTint[i].rgb * uPadTint[i].a * pms[i];
       }
       vPadA = min(vPadA, 1.0);
-      // The river cuts its bed below the water line; ground already lower is left alone.
+      // The river levels its plain, then cuts its bed below the water line; ground already lower is
+      // left alone. riverGround() in JS does the same, for things that stand on it.
+      transformed.y = mix(transformed.y, min(transformed.y, uRiver.y + ${PLAIN_RISE.toFixed(1)}), rp);
       transformed.y = mix(transformed.y, min(transformed.y, uRiver.y - 5.0), rm);
       vRiver = rm;
       vGreen = uGreenVis * ecoBand(uGreen, aPathT) * (1.0 - smoothstep(380.0, 720.0, aPathDist));
@@ -299,8 +343,12 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
   const up = new THREE.Vector3(0, 1, 0);
   for (let i = 0; i < N; i++) {
     const x = x0 + rand() * (PATH_HALF_X - x0);
-    const d = 18 + Math.pow(rand(), 0.9) * 320;
-    const z = pathZ(x) + (rand() < 0.5 ? -1 : 1) * d;
+    const r = Math.pow(rand(), 0.9);
+    // +z is the camera's side of the path (CAMERA_SIDE in app.ts): the forest there starts beyond
+    // where the camera rides, so no tree stands between it and the scenes behind the path.
+    const side = rand() < 0.5 ? -1 : 1;
+    const d = side > 0 ? 140 + r * 200 : 18 + r * 320;
+    const z = pathZ(x) + side * d;
     const s = 1.1 + rand() * 1.8;
     q.setFromAxisAngle(up, rand() * Math.PI * 2);
     m.compose(new THREE.Vector3(x, duneHeight(x, z) - 0.6, z), q, new THREE.Vector3(s, s * (0.8 + rand() * 0.5), s));
@@ -330,8 +378,9 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
         // No forest inside the Sareer.
         vec2 treeXZ = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
         g *= 1.0 - desertMask(treeXZ);
-        // Nor along the river: a meadow opens either side of it, so the water shows from the path.
-        float meadow = uRiver.x + uRiver.w + 80.0;
+        // Nor on the river's plain: meadow either side of it, so the water shows from the path, and
+        // no tree stands on ground the plain has levelled from under it.
+        float meadow = uRiver.x + uRiver.w + ${RIVER_PLAIN.toFixed(1)};
         g *= mix(1.0, smoothstep(meadow - 40.0, meadow, riverDist(treeXZ, meadow)), uRiver.z);
         // Nor on a road through the forest.
         g *= mix(1.0, smoothstep(22.0, 36.0, roadDist(treeXZ)), uRoadOn);

@@ -21,6 +21,8 @@ export interface ProcessionOptions {
   sandwalk?: boolean;
   /** Something that goes at the head of the file, this far ahead of the first walker. */
   leader?: { object: THREE.Object3D; ahead: number };
+  /** Height of what they walk on at a local point (a road, a bridge), if not the bare sand. */
+  heightAt?: (x: number, z: number) => number;
 }
 
 /**
@@ -31,8 +33,8 @@ export interface ProcessionOptions {
 export class Procession {
   readonly group = new THREE.Group();
   private readonly parts: THREE.InstancedMesh[];
-  private readonly curve: THREE.CatmullRomCurve3;
-  private readonly length: number;
+  private curve: THREE.CatmullRomCurve3;
+  private length: number;
   private center = new THREE.Vector3();
   private quat = new THREE.Quaternion();
   private readonly tmp = new THREE.Vector3();
@@ -56,14 +58,21 @@ export class Procession {
     this.length = this.curve.getLength();
   }
 
+  /** Lay the route anew, for a file whose road is only known once its piece is placed. */
+  setRoute(route: [number, number][]): void {
+    this.curve = new THREE.CatmullRomCurve3(route.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+    this.length = this.curve.getLength();
+  }
+
 
   fit(center: THREE.Vector3, quat: THREE.Quaternion): void {
     this.center = center.clone();
     this.quat = quat.clone();
   }
 
-  /** Sand height at a local point, in local units. */
+  /** Height underfoot at a local point, in local units. */
   private groundAt(x: number, z: number): number {
+    if (this.o.heightAt) return this.o.heightAt(x, z);
     this.tmp.set(x, 0, z).applyQuaternion(this.quat).add(this.center);
     return duneHeight(this.tmp.x, this.tmp.z) - this.center.y;
   }

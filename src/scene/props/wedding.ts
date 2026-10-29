@@ -38,39 +38,38 @@ function buildRoyalCart(): THREE.Group {
 }
 
 /**
- * The road, in the piece's frame: across the view from the right and away to the left, where the
- * river's upper reach lies far back, so the file has open ground to walk.
- */
-export const WEDDING_ROAD: [number, number][] = [
-  [110, -5],
-  [35, -30],
-  [-40, -65],
-  [-110, -105],
-];
-
-/**
  * The wedding procession of Leto II and Hwi Noree, in God Emperor of Dune: the Royal Cart at its
- * head and a file of Fish Speakers, his women soldiers, behind, setting out from the Citadel for
- * Tuono village, the road taking it over the Idaho River's bridge, where it will be ambushed.
- * Ground-following, so it needs the piece's placement (`fit`).
+ * head and a file of Fish Speakers, his women soldiers, behind, on the Royal Road from his Citadel,
+ * over the Idaho River's bridge, where it will be ambushed. Stands in the river's frame and walks its
+ * road: up the ramp, across the deck and down the other side.
  */
 export class WeddingProcession {
   readonly group = new THREE.Group();
-  private readonly file = new Procession({
-    count: 18,
-    spacing: 8,
-    scale: 5.5,
-    cloak: '#3f3a48',
-    route: WEDDING_ROAD,
-    duration: 45,
-    leader: { object: buildRoyalCart(), ahead: 26 },
-  });
+  private readonly file: Procession;
 
-  constructor() {
+  constructor(
+    /** The road: its route, and the height of its surface at a point on it (river frame). */
+    private readonly road: { route: () => [number, number][]; heightAt: (x: number, z: number) => number },
+  ) {
+    this.file = new Procession({
+      count: 18,
+      spacing: 8,
+      scale: 5.5,
+      cloak: '#3f3a48',
+      route: [
+        [0, 0],
+        [1, 0],
+      ],
+      duration: 50,
+      leader: { object: buildRoyalCart(), ahead: 26 },
+      heightAt: road.heightAt,
+    });
     this.group.add(this.file.group);
   }
 
+  /** Once the river is placed: its road is the procession's route. */
   fit(center: THREE.Vector3, quat: THREE.Quaternion): void {
+    this.file.setRoute(this.road.route());
     this.file.fit(center, quat);
   }
 
