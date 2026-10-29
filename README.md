@@ -27,7 +27,9 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
 - **Scrubber.** A flat minimap of the whole timeline. Drag it to walk the path.
 - **The world.** Set pieces stand beside the events they belong to:
   - a Guild heighliner at the Guild's founding
-  - Arrakeen and the Shield Wall, with ornithopters overhead
+  - Arrakeen and the Shield Wall, with ornithopters overhead and a landing field on the city's near edge.
+    When House Atreides takes Arrakis, its frigates come down onto that field one after another, and the
+    Atreides banners go up the poles once the first is down
   - a Harkonnen spice harvester and its carryall, on a spice field
   - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
   - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
@@ -42,6 +44,8 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - Atreides ships lifting off under the green and black banner as Muad'Dib's Jihad sets out
   - the Keep, seat of Alia's regency
   - blind Paul walking alone into the desert, his footprints filling in behind him
+  - the Preacher, blind Paul come back, preaching from the steps of Alia's temple to a throng in the plaza,
+    in silhouette against its lit door
   - Leto II's Citadel inside the walled Sareer, the one desert he kept on a green Arrakis. The terrain is
     masked back to sand inside its wall, and the label notes that his journals are later excavated at
     Dar-es-Balat
@@ -65,7 +69,7 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
 
   Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
   leave, so a snaking path never shows one era's props on another's horizon. Scenes (the storm, the thumper,
-  the breach, Paul's walk) are tighter still: they only show near their own event, which lets the crowded
+  the breach, the landing, Paul's walk, the Preacher) are tighter still: they only show near their own event, which lets the crowded
   stretch of *Dune* fit them all. The ground changes with the story:
   - it greens under Leto II, starting faintly in *Children of Dune*
   - it has no worms during his reign, when he is the last of them
@@ -134,7 +138,8 @@ src/
   scene/props/   set pieces: catalog (what stands where and when), placement solver, heighliner,
                  Arrakeen, harvester, sandworm, crysknife, wreckage, storm, Shield Wall and the
                  Battle of Arrakeen (collapse, worm charge), thumper, the walk, the Idaho River,
-                 fleets, sietch, processions, the no-ship, rock outcrops, particles
+                 fleets (launching and landing), sietch, processions, the Preacher, the no-ship,
+                 rock outcrops, particles
   ui/            panel, scrubber, search, about/index dialogs
 ```
 

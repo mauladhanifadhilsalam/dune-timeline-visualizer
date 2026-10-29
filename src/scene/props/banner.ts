@@ -203,6 +203,7 @@ export function createBannerPole(height: number, flagW: number, flagH: number): 
   );
   finial.position.y = height + 0.6;
   const flag = createBanner('flag', flagW, flagH);
+  flag.name = 'flag';
   flag.position.y = height - 0.5;
   g.add(pole, finial, flag);
   return g;

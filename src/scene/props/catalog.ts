@@ -1,3 +1,4 @@
+import { ARRAKEEN_FIELD } from './arrakeen';
 import { RIVER_FOOTPRINT } from './river';
 import type { WormOptions } from './sandworm';
 
@@ -29,7 +30,9 @@ export type PieceKind =
   | 'sietch'
   | 'pilgrims'
   | 'no-ship'
-  | 'scattering-fleet';
+  | 'scattering-fleet'
+  | 'atreides-landing'
+  | 'preacher';
 
 export interface SetPiece {
   kind: PieceKind;
@@ -46,6 +49,11 @@ export interface SetPiece {
    * own (inside its eras), so the many scenes of a crowded novel need not all fit at once.
    */
   moment?: number;
+  /**
+   * Stands inside another piece rather than on ground of its own: in the frame of the first piece
+   * of this kind, at this offset, and is not placed. Its footprint is the ground it uses there.
+   */
+  site?: { in: PieceKind; x: number; z: number };
   /** Preferred distance into the background; placement may push it further or slide it along. */
   lateral: number;
   /**
@@ -133,6 +141,8 @@ export const SET_PIECES: SetPiece[] = [
     kind: 'jihad-fleet',
     event: 'muaddib-jihad',
     eras: ['atreides-empire'],
+    // The Jihad setting out, over its first years, rather than through Leto II's childhood too.
+    moment: 3,
     lateral: 190,
     footprint: [
       { x: -70, z: -10, r: 85 },
@@ -225,6 +235,8 @@ export const SET_PIECES: SetPiece[] = [
     kind: 'crysknife',
     event: 'jamis-duel',
     eras: ['muaddib'],
+    // The knife of the duel, so it shows around the duel, not through all of Dune.
+    moment: 1,
     lateral: 85,
     footprint: [{ x: 0, z: 0, r: 16 }],
     note: "A crysknife, the Fremen blade made from a sandworm's tooth, as in Paul's duel with Jamis.",
@@ -352,5 +364,31 @@ export const SET_PIECES: SetPiece[] = [
     padRadius: 110,
     label: { title: 'The no-ship', sub: 'invisible to prescience, not to eyes', height: 62 },
     note: "The no-ship on Chapterhouse's landing field, where Duncan Idaho and Sheeana are kept, and in which they escape at the end of Chapterhouse: Dune.",
+  },
+  {
+    kind: 'atreides-landing',
+    event: 'atreides-arrive',
+    eras: ['muaddib'],
+    moment: 1,
+    // On Arrakeen's own landing field.
+    site: { in: 'arrakeen', x: ARRAKEEN_FIELD.x, z: ARRAKEEN_FIELD.z },
+    lateral: 0,
+    footprint: [{ x: 0, z: 0, r: ARRAKEEN_FIELD.r }],
+    note: "House Atreides comes down to Arrakeen to take the fief from the Harkonnens: its frigates landing one after another on the city's field, and the Atreides banners run up the poles once the first is down.",
+  },
+  {
+    kind: 'preacher',
+    event: 'preacher-arrives',
+    eras: ['atreides-empire'],
+    moment: 1,
+    lateral: 150,
+    footprint: [
+      { x: 0, z: -40, r: 60 },
+      { x: 0, z: 20, r: 80 },
+    ],
+    pad: { tint: '#b09a78', amount: 0.8 },
+    padRadius: 92,
+    label: { title: 'The Preacher', sub: "in the plaza before Alia's temple", height: 52 },
+    note: "The Preacher: blind Paul come back out of the desert, led by a boy, preaching against the priesthood raised in his own name to a throng in the plaza before Alia's temple in Arrakeen, on whose steps he is killed.",
   },
 ];

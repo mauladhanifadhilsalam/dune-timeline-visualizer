@@ -4,9 +4,16 @@ import { buildRidge } from './ridge';
 import { Thopter } from './thopter';
 
 /**
+ * Arrakeen's landing field, on the near edge of the city so the viewer can see what lands on it:
+ * its centre and radius in the city's frame. No building stands on it.
+ */
+export const ARRAKEEN_FIELD = { x: 80, z: 42, r: 58 };
+
+/**
  * Arrakeen at dusk: thick-walled, sloped blocks built against heat and sand, the Residency with
- * its dome at the centre, lit windows, ornithopters overhead, and the Shield Wall behind.
- * Local frame: X along the path, -Z away from the viewer. The group sits on a flattened pad.
+ * its dome at the centre, lit windows, ornithopters overhead, the landing field, and the Shield
+ * Wall behind. Local frame: X along the path, -Z away from the viewer. The group sits on a
+ * flattened pad.
  */
 export class Arrakeen {
   readonly group = new THREE.Group();
@@ -31,8 +38,10 @@ export class Arrakeen {
     const c = new THREE.Color();
     let b = 0;
     let w = 0;
+    const F = ARRAKEEN_FIELD;
     const place = (x: number, z: number, wdt: number, dep: number, h: number) => {
       if (b >= N) return;
+      if (Math.hypot(x - F.x, z - F.z) < F.r + Math.max(wdt, dep) / 2) return;
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (rand() - 0.5) * 0.18);
       // Sunk 12 units so dune noise around the pad edge never shows a floating base.
       m.compose(v.set(x, -12, z), q, sc.set(wdt, h + 12, dep));
@@ -89,6 +98,23 @@ export class Arrakeen {
     );
     beaconTop.position.y = 41;
     this.group.add(residency, dome, beaconTop);
+
+    // The landing field: a paved apron, with lamps round its rim.
+    const apron = new THREE.Mesh(
+      new THREE.CircleGeometry(F.r, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: '#5d544b', roughness: 0.95 }),
+    );
+    apron.position.set(F.x, 0.15, F.z);
+    const lamps = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1.4, 0.6, 1.4),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a').multiplyScalar(2) }),
+      28,
+    );
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      lamps.setMatrixAt(i, m.makeTranslation(F.x + Math.cos(a) * F.r, 0.4, F.z + Math.sin(a) * F.r));
+    }
+    this.group.add(apron, lamps);
 
     // The Shield Wall behind the city.
     const wall = buildRidge({ length: 560, depth: 130 });

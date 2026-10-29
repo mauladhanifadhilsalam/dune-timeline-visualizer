@@ -16,6 +16,7 @@ import { DesertWalk } from './walk';
 import { NoShip } from './noship';
 import { Pilgrims } from './pilgrims';
 import { buildOutcrops, type Outcrop, type OutcropKind } from './rocks';
+import { Preacher } from './preacher';
 import { Sietch } from './sietch';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
@@ -109,6 +110,24 @@ export class WorldProps {
   private readonly pilgrims = new Pilgrims();
   private readonly noShip = new NoShip();
   private readonly scattering = new Fleet({ banners: false });
+  /** Three frigates onto Arrakeen's field, which is about 58 across, flags round its rim. */
+  private readonly arrival = new Fleet({
+    banners: true,
+    landing: true,
+    gantries: false,
+    slots: [
+      [-26, -20],
+      [26, -6],
+      [-6, 30],
+    ],
+    poles: [
+      [-44, 44],
+      [44, 44],
+      [-58, -14],
+      [58, -14],
+    ],
+  });
+  private readonly preacher = new Preacher();
   /** Pieces whose parts sit inside a wrapper: their own groups never go invisible. */
   private readonly wrapped = new Map<THREE.Object3D, THREE.Object3D>();
   /** Every piece's footprint, all eras: the open desert's rock keeps clear of all of them. */
@@ -237,6 +256,12 @@ export class WorldProps {
         case 'scattering-fleet':
           piece.object = this.scattering.group;
           break;
+        case 'atreides-landing':
+          piece.object = this.arrival.group;
+          break;
+        case 'preacher':
+          piece.object = this.preacher.group;
+          break;
       }
       if (spec.label && labeler) {
         piece.labelObj = labeler(spec.label.title, spec.label.sub, () => this.amount(piece) > 0.6);
@@ -326,7 +351,7 @@ export class WorldProps {
     const extras = [0, 40, 80, 130, 190, 260, 340, 440];
     for (const piece of this.pieces) {
       const t = p.events.get(piece.event)?.t;
-      if (t === undefined) continue;
+      if (t === undefined || piece.site) continue;
       const { pos, along, away } = this.axes(t);
       const rivals = placed
         .filter((o) => o.eras.some((e) => piece.eras.includes(e)) && meet(o.window, piece.window))
@@ -431,6 +456,15 @@ export class WorldProps {
     }
     const basis = new THREE.Matrix4();
     for (const piece of this.pieces) {
+      if (piece.site) {
+        // Stands inside its host, on the host's ground and in its frame.
+        const host = this.pieces.find((h) => h.kind === piece.site!.in)?.base;
+        if (!host) continue;
+        const center = new THREE.Vector3(piece.site.x, 0, piece.site.z).applyQuaternion(host.quat).add(host.center);
+        piece.base = { center, quat: host.quat.clone() };
+        piece.fit?.(center, piece.base.quat);
+        continue;
+      }
       const t = p.events.get(piece.event)?.t;
       if (t === undefined || !piece.spot) continue;
       const { pos, along, away } = this.axes(t);
@@ -591,6 +625,8 @@ export class WorldProps {
     this.pilgrims.update(time);
     this.noShip.update(time);
     this.scattering.update(time + 7, dt, this.dust, this.exhaust);
+    this.arrival.update(time, dt, this.dust, this.exhaust);
+    this.preacher.update(time);
     for (const piece of this.pieces) piece.creature?.update(dt, duneHeight, this.dust);
 
     // A spice blow where Liet-Kynes died: a pre-spice mass erupting from deep sand, every so often.

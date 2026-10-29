@@ -11,11 +11,17 @@ const padLight = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a')
 const CYCLE = 18;
 const SPOOL = 3;
 const CLIMB_END = 16;
+/** Landing: seconds from first sight to touchdown, and between one ship and the next. */
+const DESCENT = 10;
+const STAGGER = 2.6;
+/** The banners go up the poles once the first ship is down. */
+const HOIST = DESCENT + 0.5;
 
 interface Ship {
   group: THREE.Group;
   slot: THREE.Vector3;
   heading: number;
+  /** Launching, its offset into the cycle; landing, seconds after arrival that it appears. */
   phase: number;
   engines: THREE.Object3D[];
   engineMat: THREE.MeshBasicMaterial;
@@ -63,21 +69,45 @@ function buildShip(banner: boolean): Omit<Ship, 'slot' | 'heading' | 'phase'> {
   return { group: g, engines, engineMat };
 }
 
+export interface FleetOptions {
+  /** The Atreides colours on poles round the apron and on every ship. */
+  banners: boolean;
+  /** Where the ships stand on the apron, and the banner poles round it, if not the default. */
+  slots?: [number, number][];
+  poles?: [number, number][];
+  /** The two service gantries behind the apron. */
+  gantries?: boolean;
+  /**
+   * Ships coming down onto the apron one after another and staying there, played from the
+   * camera's arrival, instead of lifting off on a loop. The banners are run up the poles once the
+   * first is down.
+   */
+  landing?: boolean;
+}
+
 /**
  * Ships lifting off a launch apron one after another and climbing out of sight. With `banners`,
  * Muad'Dib's Jihad leaving Arrakis: the apron and the ships fly the Atreides green and black.
- * Without, any departure, such as the Scattering. Local frame as other pieces: X along the path,
- * -Z into the background; the apron is the piece's flattened pad.
+ * Without, any departure, such as the Scattering. With `landing`, the reverse: the Atreides
+ * coming down to Arrakeen. Local frame as other pieces: X along the path, -Z into the
+ * background; the apron is the piece's flattened pad.
  */
 export class Fleet {
   readonly group = new THREE.Group();
   private readonly ships: Ship[] = [];
+  private readonly landing: boolean;
+  /** Banners on the poles, with how high each flies when fully up. */
+  private readonly flags: { flag: THREE.Object3D; top: number }[] = [];
   private readonly tmp = new THREE.Vector3();
   private exhaustDebt = 0;
+  /** Seconds since the camera arrived, for a landing. */
+  private clock = 0;
+  private seen = false;
 
-  constructor({ banners }: { banners: boolean }) {
+  constructor({ banners, landing = false, slots, poles, gantries = true }: FleetOptions) {
+    this.landing = landing;
     // Banner poles around the apron and two service gantries.
-    const poles: [number, number][] = [
+    poles ??= [
       [-120, 40],
       [-40, 52],
       [40, 52],
@@ -91,15 +121,17 @@ export class Fleet {
       // Fly downwind, roughly along the path.
       pole.rotation.y = 0.35;
       this.group.add(pole);
+      const flag = pole.getObjectByName('flag');
+      if (flag) this.flags.push({ flag, top: flag.position.y });
     }
-    for (const x of [-60, 60]) {
+    for (const x of gantries ? [-60, 60] : []) {
       const gantry = new THREE.Mesh(new THREE.BoxGeometry(6, 64, 6).translate(x, 32, -40), darkMat);
       const lamp = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 6), padLight);
       lamp.position.set(x, 65, -40);
       this.group.add(gantry, lamp);
     }
 
-    const slots: [number, number][] = [
+    slots ??= [
       [-90, -10],
       [-30, 10],
       [30, -10],
@@ -118,37 +150,79 @@ export class Fleet {
         ring.setMatrixAt(k, m.makeTranslation(x + Math.cos(a) * 24, 0.3, z + Math.sin(a) * 24));
       }
       this.group.add(ring, s.group);
-      this.ships.push({ ...s, slot, heading: 0.25 - i * 0.12, phase: (i * CYCLE) / slots.length });
+      const phase = landing ? i * STAGGER : (i * CYCLE) / slots.length;
+      this.ships.push({ ...s, slot, heading: 0.25 - i * 0.12, phase });
     });
   }
 
+  /** Pose a launching ship at `time`; returns its thrust and whether its engines are firing. */
+  private launch(ship: Ship, time: number): { thrust: number; firing: boolean } {
+    const u = (time + ship.phase) % CYCLE;
+    const g = ship.group;
+    let scale = 1;
+    let thrust = 1;
+    if (u < SPOOL) {
+      g.position.copy(ship.slot);
+      g.rotation.set(0, ship.heading, 0);
+      thrust = u / SPOOL;
+    } else {
+      // Constant acceleration up, a gentle drift away from the path, nose lifting as it climbs.
+      const s = u - SPOOL;
+      g.position.set(ship.slot.x + 0.35 * s * s, ship.slot.y + 3.2 * s * s, ship.slot.z - 0.55 * s * s);
+      g.rotation.set(0, ship.heading, Math.min(s / 7, 1) * 0.32);
+      // Shrink away into the dusk at the top rather than popping out.
+      if (u > CLIMB_END) scale = Math.max(1 - (u - CLIMB_END) / (CYCLE - CLIMB_END), 0.001);
+    }
+    g.scale.setScalar(scale);
+    return { thrust: thrust * scale, firing: u >= 1 && u <= CLIMB_END - 2 };
+  }
+
+  /**
+   * Pose a landing ship: the climb run backwards, so it comes in high from the far side and
+   * brakes all the way down, flaring level as it settles, then spools its engines down.
+   */
+  private land(ship: Ship): { thrust: number; firing: boolean } {
+    const s = this.clock - ship.phase;
+    const g = ship.group;
+    g.visible = s > 0;
+    if (s <= 0) return { thrust: 0, firing: false };
+    const k = Math.min(s / DESCENT, 1);
+    const rest = (1 - k) ** 2; // of the height still to fall
+    g.position.set(ship.slot.x + 60 * rest, ship.slot.y + 240 * rest, ship.slot.z - 110 * rest);
+    g.rotation.set(0, ship.heading, 0.22 * rest);
+    // Grows out of the haze high up rather than popping in.
+    g.scale.setScalar(Math.max(THREE.MathUtils.smoothstep(s, 0, 1.5), 0.001));
+    const thrust = s < DESCENT ? 0.7 + 0.3 * k : Math.max(1 - (s - DESCENT) / 3, 0);
+    return { thrust, firing: s < DESCENT + 0.5 };
+  }
+
   update(time: number, dt: number, dust: Particles, exhaust: Particles): void {
-    if (!this.group.visible) return;
+    if (!this.group.visible) {
+      this.seen = false;
+      return;
+    }
+    if (!this.seen) {
+      // A landing plays from the top each time the camera arrives.
+      this.seen = true;
+      this.clock = 0;
+    }
+    this.clock += dt;
+    if (this.landing) {
+      const up = THREE.MathUtils.smoothstep(this.clock, HOIST, HOIST + 6);
+      for (const { flag, top } of this.flags) {
+        flag.visible = this.clock > HOIST;
+        flag.position.y = 13 + (top - 13) * up;
+      }
+    }
     this.exhaustDebt += dt * 40;
     const emitNow = Math.floor(this.exhaustDebt);
     this.exhaustDebt -= emitNow;
     for (const ship of this.ships) {
-      const u = (time + ship.phase) % CYCLE;
       const g = ship.group;
-      let thrust: number;
-      let scale = 1;
-      if (u < SPOOL) {
-        g.position.copy(ship.slot);
-        g.rotation.set(0, ship.heading, 0);
-        thrust = u / SPOOL;
-      } else {
-        // Constant acceleration up, a gentle drift away from the path, nose lifting as it climbs.
-        const s = u - SPOOL;
-        g.position.set(ship.slot.x + 0.35 * s * s, ship.slot.y + 3.2 * s * s, ship.slot.z - 0.55 * s * s);
-        g.rotation.set(0, ship.heading, Math.min(s / 7, 1) * 0.32);
-        thrust = 1;
-        // Shrink away into the dusk at the top rather than popping out.
-        if (u > CLIMB_END) scale = Math.max(1 - (u - CLIMB_END) / (CYCLE - CLIMB_END), 0.001);
-      }
-      g.scale.setScalar(scale);
+      const { thrust, firing } = this.landing ? this.land(ship) : this.launch(ship, time);
       ship.engineMat.color.setRGB(0.66, 0.83, 1).multiplyScalar(0.4 + 2.2 * thrust);
 
-      if (u < 1 || u > CLIMB_END - 2 || emitNow === 0) continue;
+      if (!firing || emitNow === 0) continue;
       const height = g.position.y - ship.slot.y;
       for (let e = 0; e < emitNow; e++) {
         const nozzle = ship.engines[(e + Math.floor(time * 13)) % ship.engines.length];
@@ -161,7 +235,7 @@ export class Fleet {
           -28 - Math.random() * 18,
           (Math.random() - 0.5) * 6,
           0.45 + Math.random() * 0.35,
-          (2.5 + Math.random() * 3) * thrust * scale,
+          (2.5 + Math.random() * 3) * thrust,
         );
         // Sand blasted off the apron while the ship is still low.
         if (height < 40 && e % 2 === 0) {
