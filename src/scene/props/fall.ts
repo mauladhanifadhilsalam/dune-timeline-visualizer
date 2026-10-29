@@ -41,13 +41,13 @@ export class ArrakeenFalls {
     this.group.add(this.fires.group, this.fleet.group);
   }
 
-  update(time: number, dt: number, smoke: Particles, embers: Particles, dust: Particles, exhaust: Particles): void {
+  update(time: number, dt: number, smoke: Particles, embers: Particles, dust: Particles, exhaust: Particles, arrived: boolean): void {
     if (!this.group.visible) {
       // So the landing plays again from the top on the next arrival.
       this.fleet.rewind();
       return;
     }
     this.fires.update(time, dt, smoke, embers);
-    this.fleet.update(time, dt, dust, exhaust);
+    this.fleet.update(time, dt, dust, exhaust, arrived);
   }
 }

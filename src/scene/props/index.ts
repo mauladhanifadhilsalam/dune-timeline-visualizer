@@ -41,6 +41,8 @@ interface Piece extends SetPiece {
   spot?: { along: number; lateral: number };
   /** For a moment: the stretch of path (in t) over which the camera is near enough to show it. */
   window?: [number, number];
+  /** The stretch of path nearer its own event than any other. */
+  own?: [number, number];
   /** Resting transform from the last layout, before presence and visibility are applied. */
   base?: { center: THREE.Vector3; quat: THREE.Quaternion };
   /** Fits parts of the piece to the dunes once its place is known. */
@@ -134,6 +136,8 @@ export class WorldProps {
   });
   private readonly preacher = new Preacher();
   private readonly falls = new ArrakeenFalls();
+  private fallsPiece: Piece | null = null;
+  private arrivalPiece: Piece | null = null;
   /** The raid on Sietch Tabr: fire in its mouth and on the sand before it. */
   private readonly raid = new Fires(
     [
@@ -284,12 +288,14 @@ export class WorldProps {
           break;
         case 'atreides-landing':
           piece.object = this.arrival.group;
+          this.arrivalPiece = piece;
           break;
         case 'preacher':
           piece.object = this.preacher.group;
           break;
         case 'arrakeen-falls':
           piece.object = this.falls.group;
+          this.fallsPiece = piece;
           break;
         case 'sietch-raid':
           piece.object = this.raid.group;
@@ -492,17 +498,23 @@ export class WorldProps {
    */
   private moments(p: Placement): void {
     const ts = [...p.events.values()].map((e) => e.t).sort((a, b) => a - b);
+    const around = (k: number, n: number): [number, number] => [
+      k - n > 0 ? (ts[k - n - 1] + ts[k - n]) / 2 : -Infinity,
+      k + n < ts.length - 1 ? (ts[k + n] + ts[k + n + 1]) / 2 : Infinity,
+    ];
     for (const piece of this.pieces) {
       const t = p.events.get(piece.event)?.t;
-      if (piece.moment === undefined || t === undefined) continue;
+      if (t === undefined) continue;
       const k = ts.indexOf(t);
-      const lo = k - piece.moment;
-      const hi = k + piece.moment;
-      piece.window = [
-        lo > 0 ? (ts[lo - 1] + ts[lo]) / 2 : -Infinity,
-        hi < ts.length - 1 ? (ts[hi] + ts[hi + 1]) / 2 : Infinity,
-      ];
+      piece.own = around(k, 0);
+      if (piece.moment !== undefined) piece.window = around(k, piece.moment);
     }
+  }
+
+  /** Whether the camera has come to rest on this piece's own event. */
+  private arrivedAt(piece: Piece | null, focusT: number, settled: boolean): boolean {
+    const own = piece?.own;
+    return settled && !!own && focusT >= own[0] && focusT <= own[1];
   }
 
   layout(p: Placement, res: Resolved): void {
@@ -668,7 +680,8 @@ export class WorldProps {
     return this.res.eras[i]?.id ?? null;
   }
 
-  update(time: number, dt: number, focusT: number, viewportHeight: number, pixelRatio: number): void {
+  /** `settled`: the camera is at rest (not riding to an event), so scenes that play from the viewer's arrival can begin. */
+  update(time: number, dt: number, focusT: number, viewportHeight: number, pixelRatio: number, settled = true): void {
     const era = this.focusEra(focusT);
     const ease = Math.min(dt * 1.4, 1);
     for (const piece of this.pieces) {
@@ -686,7 +699,7 @@ export class WorldProps {
     this.harvester.update(time, dt, this.dust, this.spice);
     this.fleet.update(time, dt, this.dust, this.exhaust);
     this.storm.update(time, dt, this.dust);
-    this.breach.update(dt, this.dust, this.exhaust);
+    this.breach.update(dt, this.dust, this.exhaust, this.arrivedAt(this.breachPiece, focusT, settled));
     if (this.wrapped.get(this.thumper.group)?.visible) this.thumper.update(time, this.dust);
     this.walk.update(time);
     this.river.update(time);
@@ -695,9 +708,9 @@ export class WorldProps {
     this.pilgrims.update(time);
     this.noShip.update(time);
     this.scattering.update(time + 7, dt, this.dust, this.exhaust);
-    this.arrival.update(time, dt, this.dust, this.exhaust);
+    this.arrival.update(time, dt, this.dust, this.exhaust, this.arrivedAt(this.arrivalPiece, focusT, settled));
     this.preacher.update(time);
-    this.falls.update(time, dt, this.smoke, this.spice, this.dust, this.exhaust);
+    this.falls.update(time, dt, this.smoke, this.spice, this.dust, this.exhaust, this.arrivedAt(this.fallsPiece, focusT, settled));
     this.raid.update(time, dt, this.smoke, this.spice);
     // The band of Fremen is not coming home while the sietch burns.
     this.sietch.band.group.visible = !this.raidPiece || this.amount(this.raidPiece) < 0.5;

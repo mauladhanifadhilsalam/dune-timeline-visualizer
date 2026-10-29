@@ -17,8 +17,10 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
 
 - **The way in.** After the title, a short primer for newcomers: the spice, the balance of power and the
   Great Convention, the Atreides–Harkonnen feud, and the desert (it is also at the top of the ⓘ dialog).
-  Then a choice: the guided tour from the very beginning, or exploring on your own from the birth of Paul
-  Atreides. A link to an event (`#jamis-duel`) skips all of it and goes straight there.
+  Then a choice: the guided tour, or exploring on your own. Both start at the birth of Paul Atreides; the tour
+  walks on through the great moments to *Chapterhouse*, and the ten thousand years before are there to explore
+  (a tour started from any chosen moment goes on from there). A link to an event (`#jamis-duel`) skips all of
+  it and goes straight there.
 - **The path.** One glowing curve over a desert at dusk, with nine eras marked by gates. Each light is a
   dated event, coloured and tagged by the novel it comes from.
   - **Solid orbs** happen on the page.
@@ -38,7 +40,8 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   - a Harkonnen spice harvester and its carryall, on a spice field
   - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
   - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
-  - the Battle of Arrakeen, played through from your arrival: the family atomics flash against the Shield
+  - the Battle of Arrakeen, played through once the camera has come to rest on it (until then the wall stands
+    whole, even while it is in view from the raid on Sietch Tabr): the family atomics flash against the Shield
     Wall, that stretch of it slumps into rubble and boulders, the storm pours through the gap, and Fremen
     ride in behind it on five worms, a file of riders on each, to fall on the Emperor's landed frigates,
     where lasgun fire flickers. Then it sinks back into the sand and replays
@@ -74,9 +77,9 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   era, so it is always there. It keeps to the horizon behind the dioramas, never in front of them.
 
   The major landmarks carry a name in the scene, culled like every other label so they never pile up.
-  The Atreides banner follows the 2021 film's design: charcoal and deep green panels, gold stripes, and the gold
-  hawk. That is the film's reading, not Herbert's: the books give only "the green and black Atreides banner",
-  and put the hawk on the ducal crest.
+  The Atreides banner is our own reading of the books, which give only "the green and black Atreides banner"
+  and put a hawk on the ducal crest: black over green, with the crest's hawk displayed across the division in
+  gold. It is deliberately not the 2021 film's banner, which is that studio's design.
 
   Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
   leave, so a snaking path never shows one era's props on another's horizon. Scenes (the storm, the thumper,

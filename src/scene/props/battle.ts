@@ -62,7 +62,8 @@ export class ShieldWallBreach {
   private camp: THREE.Vector2 | null = null;
   private clock = 0;
   private lastU = 0;
-  private wasVisible = false;
+  /** The battle has begun: the camera settled on its event while it was in view. */
+  private started = false;
   private blasted = false;
   private stormDebt = 0;
   private sparkDebt = 0;
@@ -205,19 +206,25 @@ export class ShieldWallBreach {
     this.charge.reset();
   }
 
-  update(dt: number, dust: Particles, sparks: Particles): void {
+  /**
+   * `arrived`: the camera has settled on the battle's own event. Until then the Shield Wall stands
+   * whole with the storm blowing over its crest, however long the scene has been in view (from the
+   * raid on Sietch Tabr, say, with the camera turned the other way), so the atomics go off in front
+   * of the viewer.
+   */
+  update(dt: number, dust: Particles, sparks: Particles, arrived: boolean): void {
     if (!this.group.visible) {
-      this.wasVisible = false;
+      this.started = false;
       return;
     }
-    if (!this.wasVisible) {
-      // Start the scene as the camera arrives, rather than wherever a clock happens to be.
-      this.wasVisible = true;
+    if (!this.started) {
       this.clock = 0;
       this.lastU = 0;
       this.restart();
+      this.started = arrived;
+    } else {
+      this.clock += dt;
     }
-    this.clock += dt;
     const u = this.clock % CYCLE;
     if (u < this.lastU) this.restart();
     this.lastU = u;

@@ -1,76 +1,89 @@
 import * as THREE from 'three';
 
 /**
- * The Atreides banner, in the design of the 2021 film: charcoal outer panels and a deep green
- * centre, divided by gold stripes, with the gold hawk across them. The books give only the
- * colours ("the green and black Atreides banner" at the head of Paul's legions) and put the hawk
- * on the ducal crest, so the emblem is the film's reading, not Herbert's.
+ * The Atreides banner. Dune gives its colours, "the green and black Atreides banner" at the head of
+ * Paul's legions, and puts a hawk on the ducal crest; nothing more. This is our own reading of that:
+ * black over green, with the hawk of the crest displayed across the division in gold, inside a gold
+ * edge. (It is deliberately not the 2021 film's banner, which is that studio's design.)
  */
 
 /** Shared clock for every banner's flutter; WorldProps advances it each frame. */
 export const bannerClock: THREE.IUniform<number> = { value: 0 };
 
-const GOLD = '#d6ac68';
-const DARK = '#18252a';
-const GREEN = '#00534b';
-const EDGE = '#a8844c';
+const BLACK = '#121311';
+const GREEN = '#1f5d3b';
+const GOLD = '#d9b467';
+const EDGE = '#8a6a35';
 
-/** The stripes across the cloth, as fractions of its width, and their colours. */
-const STRIPES: [number, number, string][] = [
-  [0, 0.0425, GOLD],
-  [0.0425, 0.271, DARK],
-  [0.271, 0.3135, GOLD],
-  [0.3135, 0.6775, GREEN],
-  [0.6775, 0.72, GOLD],
-  [0.72, 0.9585, DARK],
-  [0.9585, 1, GOLD],
-];
+type Pt = [number, number];
 
 /**
- * The hawk, traced on a 2000 x 1047 banner: the wings swept up into a V that narrows to a tail,
- * the head in the fork, and a feather below each wing. Centred on (990, 527) there.
+ * The hawk displayed, as heraldry draws a bird: wings raised and spread with fingered primaries,
+ * tail fanned, head in profile to the left with a hooked beak. In a 200 x 200 box centred on
+ * (100, 100); the left wing is the right one mirrored.
  */
-const HAWK: [number, number][][] = (() => {
-  const wings: [number, number][] = [
-    [489, 95], [990, 596], [1492, 93], [1492, 262], [1055, 699], [1055, 895],
-    [990, 962], [922, 895], [922, 698], [489, 265],
+const HAWK: { parts: Pt[][]; eye: [number, number, number] } = (() => {
+  const wing: Pt[] = [
+    [110, 78], [128, 60], [150, 42], [172, 26], [192, 16], [194, 30],
+    [182, 36], [196, 46], [182, 52], [194, 64], [178, 68], [188, 82],
+    [170, 84], [176, 100], [158, 96], [160, 112], [142, 104], [138, 116], [118, 108],
   ];
-  const head: [number, number][] = [
-    [909, 492], [990, 412], [1068, 412], [1076, 418], [1076, 436], [1068, 441],
-    [1057, 433], [1036, 455], [1071, 492], [990, 574],
+  const body: Pt[] = [[100, 70], [114, 82], [118, 104], [112, 132], [100, 144], [88, 132], [82, 104], [86, 82]];
+  const tail: Pt[] = [[90, 136], [78, 176], [90, 170], [96, 184], [100, 172], [104, 184], [110, 170], [122, 176], [110, 136]];
+  const head: Pt[] = [
+    [106, 74], [99, 74], [94, 64], [92, 58], [84, 57], [79, 61], [76, 56], [80, 50],
+    [89, 46], [94, 41], [102, 38], [110, 40], [115, 47], [113, 57], [109, 65],
   ];
-  const feather: [number, number][] = [[542, 347], [907, 712], [907, 868], [900, 873], [815, 788], [815, 703], [542, 430]];
-  const mirrored = feather.map(([x, y]): [number, number] => [1980 - x, y]);
-  return [wings, head, feather, mirrored];
+  const legs: Pt[][] = [
+    [[92, 136], [86, 150], [80, 152], [84, 154], [88, 152], [92, 154], [94, 140]],
+    [[108, 136], [114, 150], [120, 152], [116, 154], [112, 152], [108, 154], [106, 140]],
+  ];
+  const mirror = (p: Pt[]): Pt[] => p.map(([x, y]) => [200 - x, y]);
+  return { parts: [wing, mirror(wing), tail, ...legs, body, head], eye: [101, 49, 2.2] };
 })();
 
-/** Fills a w x h area with the stripes. */
-function stripes(g: CanvasRenderingContext2D, w: number, h: number): void {
-  for (const [a, b, colour] of STRIPES) {
-    g.fillStyle = colour;
-    g.fillRect(Math.floor(a * w), 0, Math.ceil((b - a) * w), h);
-  }
-}
-
-/** Draws the hawk centred on (cx, cy), `scale` times its size on the 2000-wide reference. */
+/** Draws the hawk centred on (cx, cy), `scale` times its 200-unit box. */
 function hawk(g: CanvasRenderingContext2D, cx: number, cy: number, scale: number): void {
   g.save();
   g.translate(cx, cy);
   g.scale(scale, scale);
-  g.translate(-990, -527);
-  g.fillStyle = GOLD;
-  g.strokeStyle = EDGE;
-  // A thin darker edge, so the hawk still parts from the gold stripes it crosses.
-  g.lineWidth = 4;
-  g.lineJoin = 'round';
-  for (const poly of HAWK) {
+  g.translate(-100, -100);
+  const trace = (poly: Pt[]) => {
     g.beginPath();
     poly.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
     g.closePath();
-    g.fill();
+  };
+  // Outline every part first and fill them all on top, so only the outer silhouette keeps an edge.
+  g.strokeStyle = EDGE;
+  g.lineWidth = 2.4;
+  g.lineJoin = 'round';
+  for (const p of HAWK.parts) {
+    trace(p);
     g.stroke();
   }
+  g.fillStyle = GOLD;
+  for (const p of HAWK.parts) {
+    trace(p);
+    g.fill();
+  }
+  const [ex, ey, er] = HAWK.eye;
+  g.fillStyle = BLACK;
+  g.beginPath();
+  g.arc(ex, ey, er, 0, Math.PI * 2);
+  g.fill();
   g.restore();
+}
+
+/** Black over green, split at `split` of the height, inside a gold edge. */
+function field(g: CanvasRenderingContext2D, w: number, h: number, split: number): void {
+  g.fillStyle = BLACK;
+  g.fillRect(0, 0, w, h * split);
+  g.fillStyle = GREEN;
+  g.fillRect(0, h * split, w, h - h * split);
+  const u = Math.min(w, h);
+  g.strokeStyle = GOLD;
+  g.lineWidth = Math.max(2, u * 0.02);
+  g.strokeRect(u * 0.06, u * 0.06, w - u * 0.12, h - u * 0.12);
 }
 
 function canvasTexture(cv: HTMLCanvasElement): THREE.CanvasTexture {
@@ -80,7 +93,7 @@ function canvasTexture(cv: HTMLCanvasElement): THREE.CanvasTexture {
   return tex;
 }
 
-/** The flag, in the reference's proportions (about 1.9 : 1). */
+/** The flag: the hawk spread across the middle, over the division. */
 function flagTexture(): THREE.CanvasTexture {
   const W = 1024;
   const H = 536;
@@ -88,12 +101,12 @@ function flagTexture(): THREE.CanvasTexture {
   cv.width = W;
   cv.height = H;
   const g = cv.getContext('2d')!;
-  stripes(g, W, H);
-  hawk(g, W * 0.495, H * 0.503, W / 2000);
+  field(g, W, H, 0.5);
+  hawk(g, W / 2, H / 2, (H * 0.88) / 200);
   return canvasTexture(cv);
 }
 
-/** A long hanging: the same stripes run its length, the hawk near the top, a swallowtail below. */
+/** A long hanging: black above, green below, the hawk on the division near the top, a swallowtail. */
 function hangingTexture(): THREE.CanvasTexture {
   const W = 160;
   const H = 1280;
@@ -101,11 +114,8 @@ function hangingTexture(): THREE.CanvasTexture {
   cv.width = W;
   cv.height = H;
   const g = cv.getContext('2d')!;
-  stripes(g, W, H);
-  // A gold band where it hangs from its rod.
-  g.fillStyle = GOLD;
-  g.fillRect(0, 0, W, H * 0.018);
-  hawk(g, W * 0.495, H * 0.15, (W * 0.92) / 1003);
+  field(g, W, H, 0.16);
+  hawk(g, W / 2, H * 0.165, (W * 0.85) / 200);
   // Swallowtail: cut a notch out of the bottom edge (alpha-tested away).
   g.globalCompositeOperation = 'destination-out';
   g.beginPath();

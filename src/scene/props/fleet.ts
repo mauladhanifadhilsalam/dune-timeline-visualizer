@@ -4,7 +4,7 @@ import type { Particles } from './particles';
 
 const hullMat = new THREE.MeshStandardMaterial({ color: '#5a554f', metalness: 0.6, roughness: 0.45, flatShading: true });
 const darkMat = new THREE.MeshStandardMaterial({ color: '#2b2826', metalness: 0.5, roughness: 0.6 });
-const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#d6ac68').multiplyScalar(1.5) });
+const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#d9b467').multiplyScalar(1.5) });
 const padLight = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a').multiplyScalar(2) });
 
 /** One launch cycle, in seconds: spool up on the pad, lift, climb out of sight. */
@@ -201,17 +201,23 @@ export class Fleet {
     this.seen = false;
   }
 
-  update(time: number, dt: number, dust: Particles, exhaust: Particles): void {
+  /**
+   * `arrived`: the camera has settled on this fleet's event. A landing waits for it, so it plays
+   * from the top in front of the viewer rather than while the camera is still on its way or looking
+   * elsewhere; a launch runs on its own clock and ignores it.
+   */
+  update(time: number, dt: number, dust: Particles, exhaust: Particles, arrived = true): void {
     if (!this.group.visible) {
       this.seen = false;
       return;
     }
     if (!this.seen) {
-      // A landing plays from the top each time the camera arrives.
-      this.seen = true;
+      // Nothing has come down yet; the clock starts when the camera arrives.
       this.clock = 0;
+      this.seen = !this.landing || arrived;
+    } else {
+      this.clock += dt;
     }
-    this.clock += dt;
     if (this.landing) {
       const up = THREE.MathUtils.smoothstep(this.clock, HOIST, HOIST + 6);
       for (const { flag, top } of this.flags) {

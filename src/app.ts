@@ -447,6 +447,8 @@ export function createApp(): void {
   // ── Tour ────────────────────────────────────────────────────────────────────────────────
   let tourTimer = 0;
   const tourBtn = $('#btn-tour');
+  /** The era a tour begins in when no moment is chosen: The Coming of Muad'Dib, Dune's own. */
+  const TOUR_FROM = 'muaddib';
   function startTour(): void {
     state.touring = true;
     tourBtn.setAttribute('aria-pressed', 'true');
@@ -462,7 +464,11 @@ export function createApp(): void {
     if (!state.touring) return;
     const list = visibleEvents().filter((e) => e.importance >= 2);
     const cur = state.selected ? res.byId.get(state.selected) : null;
-    const next = cur ? list.find((e) => e.s > cur.s) : list[0];
+    // From a chosen moment, on from there; from nothing, from the start of Dune: the history before
+    // it is there to explore, but a tour that opens with ten thousand years of it loses newcomers.
+    const next = cur
+      ? list.find((e) => e.s > cur.s)
+      : (list.find((e) => res.eras[e.eraIndex]?.id === TOUR_FROM) ?? list[0]);
     if (!next) {
       stopTour();
       return;
@@ -816,6 +822,9 @@ export function createApp(): void {
   function enter(choice: { at?: string; tour?: boolean } = {}): void {
     if (entered) return;
     entered = true;
+    // Focus would stay on the intro's button, now hidden, and the keyboard shortcuts ignore keys
+    // aimed at buttons: Space would do nothing.
+    if (intro.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
     labels.classList.remove('is-muted');
     intro.classList.add('is-gone');
     window.setTimeout(() => (intro.hidden = true), 700);
@@ -908,7 +917,7 @@ export function createApp(): void {
 
     const t = path.nearestT(world.controls.target);
     layer.update(world.camera, elapsed, world.width, world.height, blockedRects(), t);
-    props.update(elapsed, dt, t, world.height, world.pixelRatio);
+    props.update(elapsed, dt, t, world.height, world.pixelRatio, !world.isFlying());
     pathMesh.tick(elapsed);
     desert.tick(elapsed, world.controls.target, world.camera.position, world.pixelRatio);
 
