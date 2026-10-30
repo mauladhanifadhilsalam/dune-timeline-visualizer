@@ -140,6 +140,7 @@ export function createApp(): void {
   const panel = new Panel($('#panel'), {
     onClose: () => select(null),
     onSelect: (id) => select(id),
+    onResize: () => updateViewOffset(),
   });
   const scrubber = new Scrubber($('#scrubber'), res, {
     onScrub: (t, final) => scrubTo(t, final),

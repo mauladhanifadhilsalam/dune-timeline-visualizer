@@ -31,6 +31,10 @@ npm run build     # static site in dist/, served from any path (see Cloud Run be
   breaks and resumes across all six books.
 - **Red arcs** join statements of Herbert's that cannot both be true.
 - **Scrubber.** A flat minimap of the whole timeline. Drag it to walk the path.
+- **On a phone** an event's card is a short sheet along the bottom, no more than about 30% of the screen, with
+  the story first. Tap its handle or swipe it down to collapse it to a slim bar (title and year, ‹ › to step),
+  so the scene above shows whole; tap the title or swipe up to open it again. It stays as you left it from one
+  event to the next.
 - **The world.** Set pieces stand beside the events they belong to:
   - a Guild heighliner at the Guild's founding
   - Arrakeen and the Shield Wall, with ornithopters overhead and a landing field on the city's near edge.

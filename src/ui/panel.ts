@@ -14,14 +14,95 @@ import { h } from './dom';
 export interface PanelHandlers {
   onClose: () => void;
   onSelect: (id: string) => void;
+  /** The card changed size (collapsed or expanded), so the view can re-centre in what it leaves. */
+  onResize: () => void;
 }
 
-/** The detail card for one event. Re-rendered on selection or reckoning change. */
+/**
+ * The detail card for one event. Re-rendered on selection or reckoning change. On a phone it is a
+ * short sheet along the bottom that collapses to a slim bar, so the scene above can be seen; the
+ * styles only honour collapsing there, and the choice is kept from one event to the next.
+ */
 export class Panel {
+  private collapsed = false;
+
   constructor(
     private readonly root: HTMLElement,
     private readonly handlers: PanelHandlers,
   ) {}
+
+  /** Collapse or expand the sheet (on a phone; elsewhere the card is always whole). */
+  setCollapsed(collapsed: boolean): void {
+    if (collapsed === this.collapsed) return;
+    this.collapsed = collapsed;
+    this.root.classList.toggle('is-collapsed', collapsed);
+    const handle = this.root.querySelector('.sheet-handle');
+    handle?.setAttribute('aria-expanded', String(!collapsed));
+    handle?.setAttribute('aria-label', collapsed ? 'Show the details' : 'Hide the details');
+    this.root.scrollTop = 0;
+    this.handlers.onResize();
+  }
+
+  /** The sheet's handle and its collapsed bar: title and year, with steps either side. */
+  private sheetBar(ev: ResolvedEvent, prev: ResolvedEvent | null, next: ResolvedEvent | null): HTMLElement {
+    // A swipe that ends on a button would also click it; a swipe is not a tap.
+    let swiped = false;
+    const tap = (fn: () => void) => () => {
+      if (swiped) swiped = false;
+      else fn();
+    };
+    const bar = h(
+      'div',
+      { class: 'sheet-bar' },
+      h(
+        'button',
+        {
+          class: 'sheet-handle',
+          'aria-controls': 'panel-body',
+          'aria-expanded': String(!this.collapsed),
+          'aria-label': this.collapsed ? 'Show the details' : 'Hide the details',
+          onclick: tap(() => this.setCollapsed(!this.collapsed)),
+        },
+        h('span', { class: 'sheet-grip', 'aria-hidden': 'true' }),
+      ),
+      h(
+        'div',
+        { class: 'sheet-peek' },
+        h(
+          'button',
+          { class: 'peek-step', disabled: !prev, 'aria-label': 'Earlier event', onclick: tap(() => prev && this.handlers.onSelect(prev.id)) },
+          '‹',
+        ),
+        h(
+          'button',
+          { class: 'peek-title', onclick: tap(() => this.setCollapsed(false)) },
+          h('span', { class: 'peek-name' }, ev.title),
+          h('span', { class: 'peek-year' }, formatRange(ev.y, ev.yEnd, ev.approx)),
+        ),
+        h(
+          'button',
+          { class: 'peek-step', disabled: !next, 'aria-label': 'Later event', onclick: tap(() => next && this.handlers.onSelect(next.id)) },
+          '›',
+        ),
+      ),
+    );
+    // Swipe the bar down to collapse, up to expand. The release is heard on the window, so a finger
+    // that slides off the bar still counts, without capturing the pointer (which would take taps
+    // away from the buttons in it).
+    bar.addEventListener('pointerdown', (e) => {
+      const y0 = e.clientY;
+      swiped = false;
+      const up = (u: PointerEvent) => {
+        const dy = u.clientY - y0;
+        if (Math.abs(dy) > 24) {
+          swiped = true;
+          this.setCollapsed(dy > 0);
+        }
+      };
+      window.addEventListener('pointerup', up, { once: true });
+    });
+    return bar;
+  }
 
   get isOpen(): boolean {
     return !this.root.hidden;
@@ -45,7 +126,7 @@ export class Panel {
 
     const body = h(
       'div',
-      { class: 'panel-body' },
+      { class: 'panel-body', id: 'panel-body' },
       h(
         'div',
         { class: 'panel-head' },
@@ -152,7 +233,8 @@ export class Panel {
     );
 
     this.root.style.setProperty('--c', NOVEL_COLOR[ev.novel]);
-    this.root.replaceChildren(body, nav);
+    this.root.classList.toggle('is-collapsed', this.collapsed);
+    this.root.replaceChildren(this.sheetBar(ev, prev, next), body, nav);
     this.root.hidden = false;
     this.root.scrollTop = 0;
   }
