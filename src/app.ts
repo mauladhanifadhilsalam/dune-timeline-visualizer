@@ -3,6 +3,7 @@ import { CONTRADICTIONS, ERAS, EVENTS, LIFELINES, NOVELS, UNDATED } from './data
 import type { Category, Certainty, Mode, NovelId, Reckoning } from './data/types';
 import { createDesert } from './scene/desert';
 import { defaultEye, eventDistance } from './scene/framing';
+import { SkyLight } from './scene/skies';
 import { WorldProps } from './scene/props';
 import { GoldenPath, createPathMesh, makeFrame, type PathFrame } from './scene/path';
 import { TimelineLayer, type Layers } from './scene/timeline';
@@ -130,6 +131,7 @@ export function createApp(): void {
   world.scene.add(layer.group);
   const props = new WorldProps(path, desert, -CAMERA_SIDE, (title, sub, isOn) => layer.addLandmark(title, sub, isOn));
   world.scene.add(props.group);
+  const skyLight = new SkyLight();
   // The browser tests' window into the scene: `?e2e` only, nothing else reads it.
   if (new URLSearchParams(location.search).has('e2e')) Object.assign(window, { __goldenPath: { world, props, layer, res } });
 
@@ -155,6 +157,7 @@ export function createApp(): void {
     current = p;
     layer.layout(p);
     props.layout(p, res);
+    skyLight.layout(p, res);
     scrubber.layout(p, res);
     pathMesh.setBands(p.eras.map((t, i) => ({ t: i === 0 ? 0 : t, color: ERA_TONES[i % 2] })));
   }
@@ -966,6 +969,10 @@ export function createApp(): void {
     props.update(elapsed, dt, t, world.height, world.pixelRatio, !world.isFlying());
     pathMesh.tick(elapsed);
     desert.tick(elapsed, world.controls.target, world.camera.position, world.pixelRatio);
+    if (skyLight.update(dt, t)) {
+      desert.setSky(skyLight.current);
+      world.setFogColor(skyLight.current.fog);
+    }
 
     const scale = scaleOf(res, state.scale);
     const s = invertScale(scale, t, res.min, res.max);

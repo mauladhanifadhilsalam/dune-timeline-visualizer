@@ -138,6 +138,12 @@ export class World {
     this.camera.updateProjectionMatrix();
   }
 
+  /** The haze the distance fades into, which is also the backdrop behind everything. */
+  setFogColor(c: THREE.Color): void {
+    this.fog.color.copy(c);
+    (this.scene.background as THREE.Color).copy(c);
+  }
+
   setBloom(on: boolean): void {
     this.bloom.enabled = on;
   }

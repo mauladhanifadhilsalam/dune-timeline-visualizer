@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { fbm, rng } from './noise';
 import { GoldenPath, PATH_HALF_X, pathZ } from './path';
+import { SKIES, type SkyPalette } from './skies';
 
 /** Low dusk sun. Arrakis orbits Canopus; this is it, setting. */
 export const SUN_DIR = new THREE.Vector3(-0.55, 0.16, -0.82).normalize();
-export const FOG_COLOR = new THREE.Color('#6a3f45');
+/** The dusk haze, as the scene starts; the light of each stretch of the story tints it (skies.ts). */
+export const FOG_COLOR = SKIES.dusk.fog.clone();
 
 const smoothstep = (a: number, b: number, x: number) => {
   const t = Math.min(Math.max((x - a) / (b - a), 0), 1);
@@ -429,18 +431,19 @@ const skyFragment = /* glsl */ `
   }
 `;
 
-function buildSky(): THREE.Mesh {
+function buildSky(): THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> {
+  const dusk = SKIES.dusk;
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     fog: false,
     uniforms: {
       uSunDir: { value: SUN_DIR.clone() },
-      uZenith: { value: new THREE.Color('#07060f') },
-      uMid: { value: new THREE.Color('#2a1d38') },
-      uHorizon: { value: new THREE.Color('#8a4d45') },
-      uSunGlow: { value: new THREE.Color('#ff9a52') },
-      uBelow: { value: FOG_COLOR.clone() },
+      uZenith: { value: dusk.zenith.clone() },
+      uMid: { value: dusk.mid.clone() },
+      uHorizon: { value: dusk.horizon.clone() },
+      uSunGlow: { value: dusk.sunGlow.clone() },
+      uBelow: { value: dusk.fog.clone() },
     },
     vertexShader: skyVertex,
     fragmentShader: skyFragment,
@@ -652,6 +655,8 @@ export interface Desert {
   setSpice: (level: number) => void;
   /** 0..1 each: how much of the green and scorched bands show, given where the camera is in time. */
   setEcologyVisibility: (green: number, scorch: number) => void;
+  /** Colour the sky and the lights (the haze is the scene's fog, which the world holds). */
+  setSky: (sky: SkyPalette) => void;
 }
 
 export function createDesert(path: GoldenPath): Desert {
@@ -660,19 +665,21 @@ export function createDesert(path: GoldenPath): Desert {
   group.add(buildTrees(path));
   // Sky, stars and moons ride with the camera so they show no parallax.
   const celestial = new THREE.Group();
-  celestial.add(buildSky());
+  const sky = buildSky();
+  celestial.add(sky);
   celestial.add(buildStars());
   celestial.add(buildMoon(new THREE.Vector3(0.5, 0.42, 0.75), 300, false, 7));
   celestial.add(buildMoon(new THREE.Vector3(0.82, 0.26, 0.5), 170, true, 11));
   group.add(celestial);
 
-  const hemi = new THREE.HemisphereLight('#8c7bb3', '#4a2a1c', 1.1);
+  const dusk = SKIES.dusk;
+  const hemi = new THREE.HemisphereLight(dusk.hemiSky, dusk.hemiGround, dusk.hemi);
   group.add(hemi);
-  const sun = new THREE.DirectionalLight('#ffad70', 2.6);
+  const sun = new THREE.DirectionalLight(dusk.sun, dusk.sunIntensity);
   sun.position.copy(SUN_DIR).multiplyScalar(1000);
   group.add(sun);
   // Cool fill from the moons' side so slip faces are not black.
-  const moonFill = new THREE.DirectionalLight('#7f8fd6', 0.45);
+  const moonFill = new THREE.DirectionalLight(dusk.fill, dusk.fillIntensity);
   moonFill.position.set(0.6, 0.5, 0.7).multiplyScalar(1000);
   group.add(moonFill);
 
@@ -762,6 +769,21 @@ export function createDesert(path: GoldenPath): Desert {
       // Eased, so stepping across an era boundary grows the forest rather than switching it on.
       greenTarget = green;
       scorchTarget = scorch;
+    },
+    setSky(p) {
+      const u = sky.material.uniforms;
+      u.uZenith.value.copy(p.zenith);
+      u.uMid.value.copy(p.mid);
+      u.uHorizon.value.copy(p.horizon);
+      u.uSunGlow.value.copy(p.sunGlow);
+      u.uBelow.value.copy(p.fog);
+      hemi.color.copy(p.hemiSky);
+      hemi.groundColor.copy(p.hemiGround);
+      hemi.intensity = p.hemi;
+      sun.color.copy(p.sun);
+      sun.intensity = p.sunIntensity;
+      moonFill.color.copy(p.fill);
+      moonFill.intensity = p.fillIntensity;
     },
   };
 }

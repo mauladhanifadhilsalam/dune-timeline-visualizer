@@ -97,6 +97,13 @@ npm run e2e       # browser tests against the build (see Tests below)
   - it greens under Leto II, starting faintly in *Children of Dune*
   - it has no worms during his reign, when he is the last of them
   - it is scorched glass after the Honored Matres burn Rakis
+
+  So does the light, always the same low dusk sun but tinted by what hangs in the air, and turning over a
+  couple of seconds as you walk into a new stretch (`src/scene/skies.ts`):
+  - dust-orange over Arrakis, violet overhead
+  - a damp olive haze over Leto II's green Arrakis, under a softer, yellower sun
+  - smoke-red, the sun a coal, as Rakis burns
+  - colder and paler on Chapterhouse, the Bene Gesserit's own world
 - **Camera.** It travels along the golden path itself, riding beside the thread through every bend at the
   angle you've orbited to.
   - A step to a neighbouring event takes about two seconds.
