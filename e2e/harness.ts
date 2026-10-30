@@ -35,7 +35,7 @@ export interface GoldenPathWindow {
     };
     props: {
       sceneSamples(id: string): { kind: string; points: { clone(): { project(c: unknown): { x: number; y: number; z: number } } }[] }[];
-      tourDwell(id: string): number;
+      tourHold(id: string): { what: string; seconds: number } | null;
       [k: string]: unknown;
     };
     res: { events: { id: string; importance: number }[] };

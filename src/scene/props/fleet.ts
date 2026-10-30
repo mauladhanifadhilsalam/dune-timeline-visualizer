@@ -196,6 +196,15 @@ export class Fleet {
     return { thrust, firing: s < DESCENT + 0.5 };
   }
 
+  /**
+   * Seconds from the camera's arrival until a landing has played out: the last ship down and its
+   * engines spooling down, and any banners all the way up.
+   */
+  get landingTime(): number {
+    const down = (this.ships.length - 1) * STAGGER + DESCENT + 1.5;
+    return Math.max(down, this.flags.length ? HOIST + 6 : 0);
+  }
+
   /** Back to the start, for a fleet inside another piece that hides it without hiding this group. */
   rewind(): void {
     this.seen = false;

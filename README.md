@@ -21,7 +21,8 @@ npm run e2e       # browser tests against the build (see Tests below)
   Then a choice: the guided tour, or exploring on your own. Both start at the birth of Paul Atreides; the tour
   walks on through the great moments to *Chapterhouse*, and the ten thousand years before are there to explore
   (a tour started from any chosen moment goes on from there). A link to an event (`#jamis-duel`) skips all of
-  it and goes straight there.
+  it and goes straight there. While touring, a ring round the Tour button fills as each stop's time runs out,
+  and where a scene holds the tour (a landing, the battle) a line says what it is waiting for.
 - **The path.** One glowing curve over a desert at dusk, with nine eras marked by gates. Each light is a
   dated event, coloured and tagged by the novel it comes from.
   - **Solid orbs** happen on the page.
@@ -41,8 +42,9 @@ npm run e2e       # browser tests against the build (see Tests below)
   - Arrakeen and the Shield Wall, with ornithopters overhead and a landing field on the city's near edge.
     When House Atreides takes Arrakis, its frigates come down onto that field one after another, and the
     Atreides banners go up the poles once the first is down. When the house falls, fires burn through the city
-    under smoke, and the Harkonnen and Sardaukar frigates come down on the same field
-  - a Harkonnen spice harvester and its carryall, on a spice field
+    under smoke, and the Harkonnen and Sardaukar frigates come down on the same field. Both landings start once
+    the camera has come to rest, and the guided tour stays until the last frigate is down (about 17 seconds)
+  - a Harkonnen spice harvester and its carryall, on a spice field, in the eighty years of their fief
   - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
   - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
   - the Battle of Arrakeen, played through once the camera has come to rest on it (until then the wall stands
@@ -195,6 +197,7 @@ and the scene runs on a fake clock, one fixed step per frame, so every run sees 
 - `smoke`: the intro, stepping, the tour, search, the reckoning switch, filters, with no console error
 - `phone`: the event card is a short sheet on a phone and folds down to a bar
 - `battle`: the Battle of Arrakeen waits for the camera to come back from the Sietch Tabr raid
+- `tour`: the guided tour stays at the landings until they have played out, and says so
 - `scenes`: every scene stands in clear view where its event opens: at least half of its ground on screen,
   beside the card and out from under the labels' boxes. Dunes in front of a scene are not checked.
 

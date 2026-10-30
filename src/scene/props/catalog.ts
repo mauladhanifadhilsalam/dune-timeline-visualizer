@@ -1,5 +1,4 @@
 import { ARRAKEEN_FIELD } from './arrakeen';
-import { BATTLE_SEEN } from './battle';
 import { RIVER_FOOTPRINT } from './river';
 import { SIETCH_MOUTH } from './sietch';
 import type { WormOptions } from './sandworm';
@@ -67,10 +66,11 @@ export interface SetPiece {
    */
   turn?: boolean;
   /**
-   * A scene that plays out from the viewer's arrival: the seconds a guided tour stays at its event,
-   * so it is seen through rather than left halfway.
+   * A scene that plays out from the viewer's arrival, which a guided tour stays at its event to see
+   * through rather than leave halfway: what it waits for, completing "The tour stays here …". The
+   * scene itself says how long that takes.
    */
-  dwell?: number;
+  hold?: string;
   /** Preferred distance into the background; placement may push it further or slide it along. */
   lateral: number;
   /**
@@ -222,7 +222,7 @@ export const SET_PIECES: SetPiece[] = [
     eras: ['muaddib'],
     moment: 1,
     // The tour stays until the Fremen have broken into the Emperor's camp.
-    dwell: BATTLE_SEEN,
+    hold: "until the Fremen reach the Emperor's camp",
     lateral: 360,
     footprint: [-200, -100, 0, 100, 200].map((x) => ({ x, z: 0, r: 70 })),
     label: { title: 'The Shield Wall', sub: 'breached by family atomics', height: 70 },
@@ -422,6 +422,7 @@ export const SET_PIECES: SetPiece[] = [
     event: 'atreides-arrive',
     eras: ['muaddib'],
     moment: 1,
+    hold: 'until the Atreides frigates are down and their banners up',
     // On Arrakeen's own landing field.
     site: { in: 'arrakeen', x: ARRAKEEN_FIELD.x, z: ARRAKEEN_FIELD.z },
     lateral: 0,
@@ -433,6 +434,7 @@ export const SET_PIECES: SetPiece[] = [
     event: 'fall-of-arrakeen',
     eras: ['muaddib'],
     moment: 1,
+    hold: "until the Harkonnen frigates are down on the city's field",
     // In the city itself.
     site: { in: 'arrakeen', x: 0, z: 0 },
     lateral: 0,

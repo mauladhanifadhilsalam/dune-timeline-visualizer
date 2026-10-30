@@ -36,6 +36,6 @@ test('the Battle of Arrakeen waits for the camera before the atomics go off', as
   // The charge set to go off a few seconds after the camera comes to rest.
   await expect.poll(async () => (await step(page, 1), (await battle(page)).blasted), { timeout: 60_000 }).toBe(true);
   // A guided tour stays long enough for the worms to reach the camp.
-  const dwell = await page.evaluate(() => (window as unknown as GoldenPathWindow).__goldenPath.props.tourDwell('battle-of-arrakeen'));
-  expect(dwell).toBeGreaterThan(20);
+  const hold = await page.evaluate(() => (window as unknown as GoldenPathWindow).__goldenPath.props.tourHold('battle-of-arrakeen'));
+  expect(hold?.seconds).toBeGreaterThan(20);
 });

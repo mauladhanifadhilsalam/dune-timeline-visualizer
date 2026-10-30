@@ -41,6 +41,11 @@ export class ArrakeenFalls {
     this.group.add(this.fires.group, this.fleet.group);
   }
 
+  /** Seconds from the camera's arrival until the last frigate is down. */
+  get landingTime(): number {
+    return this.fleet.landingTime;
+  }
+
   update(time: number, dt: number, smoke: Particles, embers: Particles, dust: Particles, exhaust: Particles, arrived: boolean): void {
     if (!this.group.visible) {
       // So the landing plays again from the top on the next arrival.

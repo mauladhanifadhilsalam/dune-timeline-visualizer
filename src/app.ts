@@ -451,6 +451,11 @@ export function createApp(): void {
    * clock: on a slow device the scenes run slower too, and a timer would leave a battle halfway.
    */
   let tourAt: number | null = null;
+  /** How long the tour stays at the current stop, which the Tour button's ring counts down. */
+  let tourStay = 1;
+  let tourShown = -1;
+  /** Whether the hint is saying what the tour waits for, so moving on takes it away. */
+  let holding = false;
   const tourBtn = $('#btn-tour');
   /** The era a tour begins in when no moment is chosen: The Coming of Muad'Dib, Dune's own. */
   const TOUR_FROM = 'muaddib';
@@ -464,9 +469,13 @@ export function createApp(): void {
     state.touring = false;
     tourAt = null;
     tourBtn.setAttribute('aria-pressed', 'false');
+    tourProgress(0);
+    endHold();
   }
   function tourStep(): void {
     if (!state.touring) return;
+    tourProgress(0);
+    endHold();
     const list = visibleEvents().filter((e) => e.importance >= 2);
     const cur = state.selected ? res.byId.get(state.selected) : null;
     // From a chosen moment, on from there; from nothing, from the start of Dune: the history before
@@ -480,11 +489,30 @@ export function createApp(): void {
     }
     select(next.id, {
       done: () => {
-        // Long enough to read the card, or for the event's scene to play through, whichever is longer.
-        const stay = Math.max(reducedMotion.matches ? 9 : 6.5, props.tourDwell(next.id));
-        if (state.touring) tourAt = elapsed + stay;
+        if (!state.touring) return;
+        // Long enough to read the card, or for the event's scene to play through, whichever is
+        // longer; a scene that holds the tour says so, or the wait looks like the tour has stalled.
+        const hold = props.tourHold(next.id);
+        tourStay = Math.max(reducedMotion.matches ? 9 : 6.5, hold?.seconds ?? 0);
+        tourAt = elapsed + tourStay;
+        if (hold) {
+          showHint(`The tour stays here ${hold.what}.`);
+          holding = true;
+        }
       },
     });
+  }
+  /** Fill the ring round the Tour button, 0..1, as the stay at the current stop runs out. */
+  function tourProgress(k: number): void {
+    const q = Math.round(k * 200) / 200;
+    if (q === tourShown) return;
+    tourShown = q;
+    tourBtn.style.setProperty('--tour-progress', String(q));
+  }
+  function endHold(): void {
+    if (!holding) return;
+    holding = false;
+    hideHint();
   }
   tourBtn.addEventListener('click', () => (state.touring ? stopTour() : startTour()));
   world.onUserInteract = () => stopTour();
@@ -691,15 +719,21 @@ export function createApp(): void {
   // ── Hint toast ───────────────────────────────────────────────────────────────────────────
   const hint = $('#hint');
   let hintTimer = 0;
-  function flashHint(text: string, ms = 4200): void {
-    hint.textContent = text;
-    hint.hidden = false;
-    hint.classList.add('on');
+  // The hint is a status line screen readers follow, so it stays in the page and only fades; its
+  // text is cleared once it has faded, so it is not read out again.
+  function showHint(text: string): void {
     window.clearTimeout(hintTimer);
-    hintTimer = window.setTimeout(() => {
-      hint.classList.remove('on');
-      hintTimer = window.setTimeout(() => (hint.hidden = true), 400);
-    }, ms);
+    hint.textContent = text;
+    hint.classList.add('on');
+  }
+  function hideHint(): void {
+    window.clearTimeout(hintTimer);
+    hint.classList.remove('on');
+    hintTimer = window.setTimeout(() => (hint.textContent = ''), 400);
+  }
+  function flashHint(text: string, ms = 4200): void {
+    showHint(text);
+    hintTimer = window.setTimeout(hideHint, ms);
   }
 
   // ── Pointer picking ──────────────────────────────────────────────────────────────────────
@@ -871,7 +905,7 @@ export function createApp(): void {
     const out: number[] = [];
     const o = stageRect();
     for (const el of blockers) {
-      if (el.hidden || el.offsetParent === null) continue;
+      if (el.hidden || el.offsetParent === null || (el.id === 'hint' && !el.classList.contains('on'))) continue;
       const r = el.getBoundingClientRect();
       if (r.width && r.height) out.push(r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top);
     }
@@ -902,6 +936,7 @@ export function createApp(): void {
       tourAt = null;
       tourStep();
     }
+    if (state.touring && tourAt !== null) tourProgress(1 - Math.max(tourAt - elapsed, 0) / tourStay);
 
     if (morph) {
       // Keep the selected marker in frame while everything slides.

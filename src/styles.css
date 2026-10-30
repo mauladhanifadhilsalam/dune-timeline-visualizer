@@ -181,6 +181,31 @@ button {
 .btn[aria-pressed='true'] {
   border-color: var(--accent);
 }
+/* While touring, a ring round the Tour button fills as the stay at the current stop runs out. */
+#btn-tour {
+  position: relative;
+}
+#btn-tour::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(var(--accent) calc(var(--tour-progress, 0) * 1turn), transparent 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+}
+#btn-tour[aria-pressed='true']::after {
+  opacity: 1;
+}
 .btn-icon {
   width: 36px;
   padding: 0;
@@ -1027,6 +1052,8 @@ kbd {
   left: 50%;
   bottom: 118px;
   transform: translate(-50%, 8px);
+  /* Its own width up to the cap; left at 50% would otherwise squeeze it into half the screen. */
+  width: max-content;
   max-width: min(560px, calc(100vw - 32px));
   padding: 9px 16px;
   border-radius: 999px;
@@ -1042,6 +1069,11 @@ kbd {
 .hint.on {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+/* Centred in the part of the screen the card leaves free, like the event itself. */
+.panel:not([hidden]) ~ .hint {
+  left: calc((100% - 400px) / 2);
+  max-width: min(480px, calc(100% - 432px));
 }
 
 .intro {
@@ -1405,6 +1437,16 @@ kbd {
   /* The sheet covers the timeline bar; collapsed, it would leave half of it showing. */
   .panel:not([hidden]) ~ .scrubber {
     visibility: hidden;
+  }
+  /* Hints stand just above the sheet, open or folded, rather than under it. */
+  .panel:not([hidden]) ~ .hint {
+    left: 50%;
+    max-width: calc(100% - 32px);
+    bottom: calc(30vh + 12px);
+    bottom: calc(30dvh + 12px);
+  }
+  .panel.is-collapsed:not([hidden]) ~ .hint {
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
   }
   .panel.is-collapsed .panel-body,
   .panel.is-collapsed .panel-nav {

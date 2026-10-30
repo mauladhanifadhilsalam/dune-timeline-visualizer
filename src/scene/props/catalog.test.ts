@@ -54,6 +54,14 @@ describe('set pieces', () => {
     }
   });
 
+  it('hold a guided tour only for scenes that play from the viewer’s arrival', () => {
+    // A scene shown all era long is already playing when the tour comes; only a moment starts then.
+    for (const p of SET_PIECES.filter((x) => x.hold)) {
+      expect(p.moment, p.kind).toBeDefined();
+      expect(p.hold, p.kind).toMatch(/^until /);
+    }
+  });
+
   it('give every worm its swimming parameters', () => {
     for (const p of SET_PIECES.filter((x) => x.kind === 'worm')) expect(p.worm).toBeDefined();
   });

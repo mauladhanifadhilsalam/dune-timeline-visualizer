@@ -9,7 +9,7 @@ import { Arrakeen } from './arrakeen';
 import { bannerClock } from './banner';
 import { SareerCitadel, buildKeep } from './citadels';
 import { Fleet } from './fleet';
-import { ShieldWallBreach } from './battle';
+import { BATTLE_SEEN, ShieldWallBreach } from './battle';
 import { IdahoRiver } from './river';
 import { CoriolisStorm } from './storm';
 import { Thumper } from './thumper';
@@ -51,6 +51,8 @@ interface Piece extends SetPiece {
   fit?: (center: THREE.Vector3, quat: THREE.Quaternion) => void;
   /** Its name over it in the scene. */
   labelObj?: THREE.Object3D;
+  /** For a scene a guided tour holds for: seconds from the camera's arrival until it has played out. */
+  holdFor?: number;
 }
 
 /** Makes a scene label that the timeline's label culling manages; the caller positions it. */
@@ -270,6 +272,7 @@ export class WorldProps {
         case 'shield-breach':
           piece.object = this.breach.group;
           piece.fit = (c, q) => this.breach.fit(c, q);
+          piece.holdFor = BATTLE_SEEN;
           this.breachPiece = piece;
           break;
         case 'thumper':
@@ -311,6 +314,7 @@ export class WorldProps {
           break;
         case 'atreides-landing':
           piece.object = this.arrival.group;
+          piece.holdFor = this.arrival.landingTime;
           this.arrivalPiece = piece;
           break;
         case 'preacher':
@@ -318,6 +322,7 @@ export class WorldProps {
           break;
         case 'arrakeen-falls':
           piece.object = this.falls.group;
+          piece.holdFor = this.falls.landingTime;
           this.fallsPiece = piece;
           break;
         case 'sietch-raid':
@@ -340,6 +345,7 @@ export class WorldProps {
       if (spec.label && labeler) {
         piece.labelObj = labeler(spec.label.title, spec.label.sub, () => this.amount(piece) > 0.6);
       }
+      if (piece.hold && !piece.holdFor) throw new Error(`${spec.kind} holds the tour but does not say for how long`);
       this.pieces.push(piece);
       if (piece.object) this.group.add(piece.object);
     }
@@ -385,9 +391,16 @@ export class WorldProps {
     return Math.sign(dx * f.side.x + dz * f.side.z) * this.background >= 0 ? 1 : -1;
   }
 
-  /** Seconds a guided tour should stay at this event for its scenes to play out (0: none ask). */
-  tourDwell(eventId: string): number {
-    return Math.max(0, ...this.pieces.filter((p) => p.event === eventId).map((p) => p.dwell ?? 0));
+  /**
+   * What a guided tour should stay at this event to see, and for how many seconds from arriving:
+   * the longest of its scenes that play out from the viewer's arrival, if it has any.
+   */
+  tourHold(eventId: string): { what: string; seconds: number } | null {
+    let hold: { what: string; seconds: number } | null = null;
+    for (const p of this.pieces) {
+      if (p.event === eventId && p.hold && (!hold || p.holdFor! > hold.seconds)) hold = { what: p.hold, seconds: p.holdFor! };
+    }
+    return hold;
   }
 
   /**
