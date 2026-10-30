@@ -24,6 +24,21 @@ const UP = new THREE.Vector3(0, 1, 0);
 const RADIUS = { 1: 1.0, 2: 1.45, 3: 2.1 } as const;
 const HEIGHT = { 1: 6.5, 2: 10, 3: 14.5 } as const;
 const MARKER_LATERAL = 4.2;
+
+/** How high over the path an event's light floats. */
+export function eventLightHeight(importance: 1 | 2 | 3): number {
+  return HEIGHT[importance];
+}
+
+/** How high over the path an event's label hangs from: the top of its light. */
+export function eventLabelLift(importance: 1 | 2 | 3): number {
+  return HEIGHT[importance] + RADIUS[importance] + 0.9;
+}
+
+/** How far off an event's name still shows, unless it is the one chosen or hovered. */
+export function eventLabelRange(importance: number): number {
+  return importance === 3 ? 620 : importance === 2 ? 300 : 165;
+}
 const NOVEL_LANE0 = 15;
 const LANE_STEP = 3.4;
 const LANE_LIFT = -7;
@@ -636,11 +651,7 @@ export class TimelineLayer {
           l.kind === 'era'
             ? 2200
             : l.kind === 'event'
-              ? l.importance === 3
-                ? 620
-                : l.importance === 2
-                  ? 300
-                  : 165
+              ? eventLabelRange(l.importance)
               : l.kind === 'novel'
                 ? 900
                 : l.kind === 'conflict'

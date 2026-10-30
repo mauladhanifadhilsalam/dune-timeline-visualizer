@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONTRADICTIONS, ERAS, EVENTS, LIFELINES, NOVELS, UNDATED } from './data';
 import type { Category, Certainty, Mode, NovelId, Reckoning } from './data/types';
 import { createDesert } from './scene/desert';
+import { defaultEye, eventDistance } from './scene/framing';
 import { WorldProps } from './scene/props';
 import { GoldenPath, createPathMesh, makeFrame, type PathFrame } from './scene/path';
 import { TimelineLayer, type Layers } from './scene/timeline';
@@ -129,6 +130,8 @@ export function createApp(): void {
   world.scene.add(layer.group);
   const props = new WorldProps(path, desert, -CAMERA_SIDE, (title, sub, isOn) => layer.addLandmark(title, sub, isOn));
   world.scene.add(props.group);
+  // The browser tests' window into the scene: `?e2e` only, nothing else reads it.
+  if (new URLSearchParams(location.search).has('e2e')) Object.assign(window, { __goldenPath: { world, props, layer, res } });
 
   const scaleOf = (r: Resolved, mode: ScaleMode): Scale => (mode === 'story' ? r.narrative : r.linear);
   let current: Placement = placementFrom(res, scaleOf(res, state.scale));
@@ -212,10 +215,7 @@ export function createApp(): void {
     const ev = res.byId.get(id);
     if (!pos || t === null || !ev) return null;
     path.frameAt(t, frame);
-    // Far enough back to see the neighbours on either side, not just the one light.
-    // Portrait screens have a narrow horizontal view, so step back further.
-    const aspect = world.width / world.height;
-    const d = (58 + ev.importance * 8) * (aspect < 1 ? Math.min(1 / aspect, 2) : 1);
+    const d = eventDistance(ev.importance, world.width / world.height);
     const target = pos.clone().addScaledVector(UP, -1);
 
     // A scene on the camera's own side of the path: turn round over the path and look back across
@@ -231,11 +231,15 @@ export function createApp(): void {
       const eye = target.clone().addScaledVector(away, d * 1.3).addScaledVector(UP, d * 0.28);
       return { eye, target };
     }
-    // Leaving such a scene: back to the angle from before the turn.
+    // Leaving such a scene: back to the angle from before the turn. If that was from far off (the
+    // scene was picked from the overview), the default framing instead: restoring it would lift
+    // the camera straight back out, and keeping the turned angle would leave it facing backwards.
+    let turned = false;
     if (beforeTurn) {
-      const eye = target.clone().add(fromLocal(beforeTurn, frame, tmpA));
+      const back = fromLocal(beforeTurn, frame, tmpA);
       beforeTurn = null;
-      return { eye, target };
+      if (back.length() < d * 2.6) return { eye: target.clone().add(back), target };
+      turned = true;
     }
 
     // Keep the viewer's own angle: express the current eye offset in the path's local frame
@@ -243,7 +247,7 @@ export function createApp(): void {
     // from far away (the overview) or from an extreme angle.
     const offset = tmpA.copy(world.camera.position).sub(world.controls.target);
     const dist = offset.length();
-    if (dist > d * 0.45 && dist < d * 2.6) {
+    if (!turned && dist > d * 0.45 && dist < d * 2.6) {
       path.frameAt(path.nearestT(world.controls.target), localFrame);
       const across = offset.dot(localFrame.side);
       const along = offset.dot(localFrame.tangent);
@@ -255,12 +259,7 @@ export function createApp(): void {
         .addScaledVector(frame.tangent, along);
       return { eye, target };
     }
-    // Near eye level, so the horizon and the sky (heighliner, Shield Wall) stay in frame.
-    const eye = target
-      .clone()
-      .addScaledVector(frame.side, CAMERA_SIDE * d * 0.86)
-      .addScaledVector(UP, d * 0.2)
-      .addScaledVector(frame.tangent, -d * 0.2);
+    const eye = defaultEye(target, tmpB.copy(frame.side).multiplyScalar(CAMERA_SIDE), frame.tangent, d);
     return { eye, target };
   }
 
@@ -426,8 +425,9 @@ export function createApp(): void {
 
   /** Centre the focused object in the part of the screen the panel and top bar leave free. */
   function updateViewOffset(): void {
+    const snap = reducedMotion.matches;
     if (!panel.isOpen) {
-      world.setViewOffset(0, 0);
+      world.setViewOffset(0, 0, snap);
       return;
     }
     const stage = world.renderer.domElement.getBoundingClientRect();
@@ -436,10 +436,10 @@ export function createApp(): void {
     if (p.top - stage.top > top + 40 && p.left - stage.left < 40) {
       // Bottom sheet: free band between the top bar and the sheet.
       const free = (top + (p.top - stage.top)) / 2;
-      world.setViewOffset(0, world.height / 2 - free);
+      world.setViewOffset(0, world.height / 2 - free, snap);
     } else {
       const free = (p.left - stage.left) / 2;
-      world.setViewOffset(world.width / 2 - free, 0);
+      world.setViewOffset(world.width / 2 - free, 0, snap);
     }
   }
   new ResizeObserver(updateViewOffset).observe($('#panel'));

@@ -11,6 +11,7 @@ npm install
 npm run dev       # http://localhost:5173
 npm test          # data integrity + time-scale tests
 npm run build     # static site in dist/, served from any path (see Cloud Run below)
+npm run e2e       # browser tests against the build (see Tests below)
 ```
 
 ## What you're looking at
@@ -166,10 +167,13 @@ src/
 ```
 
 To add a set piece, add an entry to `src/scene/props/catalog.ts` with its event, eras and footprint (and
-`moment` for a scene that should only show near its event, `side: 'near'` for one on the camera's side). Placement slides it along and away from its event
-until it clears the path and the other pieces it can be on screen with, trying first only spots inside the
-frame that event opens on. `catalog.test.ts`
-checks that its event and eras exist and that it shows in its own event's era.
+`moment` for a scene that should only show near its event, `side: 'near'` for one on the camera's side).
+Placement slides it along and away from its event until it clears the path and the other pieces it can be on
+screen with. Of the clear spots it takes the one with most of the scene in view from its event, as a 1280×760
+desktop sees it with the event's card open (beside the card, out from under the event labels), for the least
+pushed back. Pieces are placed in catalog order, so put big scenes that need their ground before small,
+flexible ones. `catalog.test.ts` checks that its event and eras exist and that it shows in its own event's
+era; `e2e/scenes.spec.ts` checks it is really in view.
 
 The data tests (`src/data/data.test.ts`) check that:
 
@@ -180,6 +184,22 @@ The data tests (`src/data/data.test.ts`) check that:
 - every lifespan anchor agrees with its event
 
 To add an event, append it to `src/data/events.ts` at its place in the story, then run `npm test`.
+
+## Tests
+
+`npm test` runs the unit tests (Vitest). `npm run e2e` runs the browser tests (Playwright) against the
+production build, so run `npm run build` first; it starts `vite preview` itself. They need Chromium once:
+`npx playwright install chromium`. WebGL runs on SwiftShader, the software renderer, so no GPU is needed,
+and the scene runs on a fake clock, one fixed step per frame, so every run sees the same frames:
+
+- `smoke`: the intro, stepping, the tour, search, the reckoning switch, filters, with no console error
+- `phone`: the event card is a short sheet on a phone and folds down to a bar
+- `battle`: the Battle of Arrakeen waits for the camera to come back from the Sietch Tabr raid
+- `scenes`: every scene stands in clear view where its event opens: at least half of its ground on screen,
+  beside the card and out from under the labels' boxes. Dunes in front of a scene are not checked.
+
+The page exposes its scene to the tests only with `?e2e` in the address. GitHub Actions
+(`.github/workflows/ci.yml`) runs the type check, both test suites and the build on every push.
 
 ## Deploy to Google Cloud Run
 

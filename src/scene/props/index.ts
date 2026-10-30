@@ -4,6 +4,7 @@ import type { Placement } from '../../timeline/placement';
 import { MAX_PADS, duneHeight, type Band, type Desert, type Pad } from '../desert';
 import { rng } from '../noise';
 import { GoldenPath, makeFrame } from '../path';
+import { eventLabelLift, eventLightHeight } from '../timeline';
 import { Arrakeen } from './arrakeen';
 import { bannerClock } from './banner';
 import { SareerCitadel, buildKeep } from './citadels';
@@ -28,6 +29,7 @@ import { Heighliner, buildImperialCamp } from './heighliner';
 import { Particles } from './particles';
 import { buildCrysknife, buildWreckage } from './relics';
 import { SET_PIECES, type Circle, type SetPiece } from './catalog';
+import { EventView } from './view';
 import { Sandworm } from './sandworm';
 
 /** A catalog entry brought to life: its object, and where placement and gating left it. */
@@ -82,6 +84,27 @@ const CAMERA_CLEARANCE = 110;
 const VIEW_BEHIND = 0.4;
 const VIEW_AHEAD = 0.95;
 const VIEW_BACK = 60;
+/**
+ * How much of a scene in clear view from its event, beside the card and out from under the labels,
+ * is good enough: more earns a spot nothing.
+ */
+const GOOD_VIEW = 0.75;
+/** What pushing a scene further back costs it, against the share of it in view: this far is all of it. */
+const PUSH_BACK = 400;
+
+/**
+ * Points over the ground a footprint covers, five to a circle, lifted a little off the sand (or at
+ * a fixed height, for something in the sky): what checking a scene's view looks at.
+ */
+function samplePoints(circles: Circle[], y?: number): THREE.Vector3[] {
+  return circles.flatMap((c) =>
+    [[0, 0], [0.6, 0], [-0.6, 0], [0, 0.6], [0, -0.6]].map(([dx, dz]) => {
+      const x = c.x + dx * c.r;
+      const z = c.z + dz * c.r;
+      return new THREE.Vector3(x, y ?? duneHeight(x, z) + 6, z);
+    }),
+  );
+}
 
 /**
  * Everything in the world that belongs to a moment: heighliners, Arrakeen, the Emperor's camp,
@@ -367,6 +390,24 @@ export class WorldProps {
     return Math.max(0, ...this.pieces.filter((p) => p.event === eventId).map((p) => p.dwell ?? 0));
   }
 
+  /**
+   * Points over the ground each of an event's scenes stands on, a few per footprint circle, for
+   * checking what its camera actually sees. Leaves out what is meant to be out of frame: pieces
+   * on the camera's side that the camera does not turn to.
+   */
+  sceneSamples(eventId: string): { kind: string; points: THREE.Vector3[] }[] {
+    return this.pieces
+      .filter((p) => p.event === eventId && p.base && (p.side !== 'near' || p.turn))
+      .map((p) => {
+        const { center, quat } = p.base!;
+        const circles = p.footprint.map((c) => {
+          const v = new THREE.Vector3(c.x, 0, c.z).applyQuaternion(quat).add(center);
+          return { x: v.x, z: v.z, r: c.r };
+        });
+        return { kind: p.kind, points: samplePoints(circles, p.grounded ? undefined : center.y) };
+      });
+  }
+
   /** Where the camera should turn to look when this event is chosen, if a scene asks for it. */
   turnTarget(eventId: string): THREE.Vector3 | null {
     const piece = this.pieces.find((p) => p.event === eventId && p.turn && p.base);
@@ -407,18 +448,44 @@ export class WorldProps {
     return worst;
   }
 
+  /** Each event's view as placement sees it, made when first asked for. */
+  private eventViews(p: Placement, res: Resolved): (id: string) => EventView | null {
+    const views = new Map<string, EventView | null>();
+    const anchors = res.events.flatMap((e) => {
+      const t = p.events.get(e.id)?.t;
+      if (t === undefined) return [];
+      const at = this.path.frameAt(t, this.frame).pos.clone().addScaledVector(UP, eventLabelLift(e.importance));
+      return [{ e, at }];
+    });
+    return (id) => {
+      if (views.has(id)) return views.get(id)!;
+      const ev = res.byId.get(id);
+      const t = p.events.get(id)?.t;
+      let view: EventView | null = null;
+      if (ev && t !== undefined) {
+        const f = this.path.frameAt(t, this.frame);
+        const target = f.pos.clone().addScaledVector(UP, eventLightHeight(ev.importance) - 1);
+        view = new EventView(target, f.side.clone().multiplyScalar(-this.background), f.tangent.clone(), ev.importance);
+        for (const { e, at } of anchors) view.addLabel(at, e.title, e.importance);
+      }
+      views.set(id, view);
+      return view;
+    };
+  }
+
   /**
    * Slide each grounded piece along the path and further into the background until its footprint
-   * is clear. Candidates are tried nearest-first, so a piece stays as close to its event as fits,
-   * and first only where the event's own camera will see it; off-frame spots are a last resort.
+   * is clear. Of the clear spots, it takes the one its event's camera sees best, beside the card
+   * and the labels, for the least pushed back; off-frame spots are a last resort.
    */
-  private solve(p: Placement): void {
+  private solve(p: Placement, res: Resolved): void {
     // Pieces only need to keep clear of pieces they can be on screen with: those sharing an era,
     // unless both are moments whose stretches of path do not meet.
     const placed: { circles: Circle[]; eras: string[]; window?: [number, number] }[] = [];
     const meet = (a?: [number, number], b?: [number, number]) => !a || !b || (a[0] < b[1] && b[0] < a[1]);
     const alongs = [0, 40, -40, 80, -80, 130, -130, 180, -180, 240, -240, 320, -320, 400, -400];
     const extras = [0, 40, 80, 130, 190, 260, 340, 440];
+    const viewOf = this.eventViews(p, res);
     for (const piece of this.pieces) {
       const t = p.events.get(piece.event)?.t;
       if (t === undefined || piece.site) continue;
@@ -429,12 +496,27 @@ export class WorldProps {
       // A piece on the camera's side stands out of every event's frame, and well clear of the camera.
       const side = piece.side === 'near' ? -1 : 1;
       const clearance = side < 0 ? CAMERA_CLEARANCE : PATH_CLEARANCE;
-      let best = { along: piece.along ?? 0, lateral: side * piece.lateral, bad: Infinity };
-      // First only the best ground, then anywhere clear. The best ground, for a piece behind the
-      // path, is inside the frame its event opens on. For one on the camera's side it is ground
-      // nearest a stretch of path in one of its eras: the path can bend back nearer there than its
-      // own stretch, and looking at it brings the nearest stretch's era into view.
-      search: for (const strict of [true, false]) {
+      // Scenes standing inside this piece, each seen from its own event.
+      const guests = side > 0 ? this.pieces.filter((g) => g.site?.in === piece.kind) : [];
+      // How much of the piece, and of every scene inside it, is in clear view when its event is
+      // chosen with the card open: on screen, beside the card and out from under the labels.
+      const inView = (center: THREE.Vector3, circles: Circle[]): number => {
+        let q = viewOf(piece.event)?.share(samplePoints(circles, piece.grounded ? undefined : pos.y + (piece.lift ?? 0))) ?? 1;
+        for (const g of guests) {
+          const at = center.clone().addScaledVector(along, g.site!.x).addScaledVector(away, -g.site!.z);
+          q = Math.min(q, viewOf(g.event)?.share(samplePoints(this.worldCircles(at, along, away, g.footprint))) ?? 1);
+        }
+        return q;
+      };
+      // Of the clear spots, the one with most of the scene in view for the least pushed back (the
+      // further back, the smaller on screen), where more in view than is good enough earns nothing;
+      // on a tie, the nearest the event. If nowhere is clear at all, the least crowded spot. First
+      // only the best ground, then anywhere. The best ground, for a piece behind the path, is inside
+      // the frame its event opens on. For one on the camera's side it is ground nearest a stretch of
+      // path in one of its eras: the path can bend back nearer there than its own stretch, and
+      // looking at it brings the nearest stretch's era into view.
+      let best = { along: piece.along ?? 0, lateral: side * piece.lateral, bad: Infinity, score: -Infinity };
+      for (const strict of [true, false]) {
         for (const extra of extras) {
           const lateral = side * (piece.lateral + extra);
           for (const slide of alongs) {
@@ -445,11 +527,18 @@ export class WorldProps {
             // path to its other side; it must stay on its own side of the nearest stretch.
             if (this.sideOf(center) !== side) continue;
             if (strict && side < 0 && !piece.eras.includes(this.focusEra(this.nearestPathT(center.x, center.z)) ?? '')) continue;
-            const bad = this.intrusion(this.worldCircles(center, along, away, piece.footprint), rivals, clearance);
-            if (bad < best.bad) best = { along: a, lateral, bad };
-            if (bad === 0) break search;
+            const circles = this.worldCircles(center, along, away, piece.footprint);
+            const bad = this.intrusion(circles, rivals, clearance);
+            if (bad > 0) {
+              if (best.score === -Infinity && bad < best.bad) best = { along: a, lateral, bad, score: -Infinity };
+              continue;
+            }
+            const q = side > 0 ? inView(center, circles) : 1;
+            const score = Math.min(q, GOOD_VIEW) - extra / PUSH_BACK;
+            if (score > best.score) best = { along: a, lateral, bad, score };
           }
         }
+        if (best.score > -Infinity) break;
       }
       piece.spot = { along: best.along, lateral: best.lateral };
       const center = pos.clone().addScaledVector(along, best.along).addScaledVector(away, best.lateral);
@@ -530,7 +619,7 @@ export class WorldProps {
     // of every anchor here are the same under both reckonings, and on true scale the pieces are
     // sunk out of sight, so there is nothing to re-solve and nothing hops around mid-morph.
     if (!this.solved && this.presence > 0.999) {
-      this.solve(p);
+      this.solve(p, res);
       this.solved = true;
     }
     const basis = new THREE.Matrix4();

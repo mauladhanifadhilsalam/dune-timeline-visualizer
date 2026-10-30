@@ -6,6 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { FOG_COLOR, duneHeight } from './desert';
+import { FOV } from './framing';
 
 const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -65,7 +66,7 @@ export class World {
     this.labelRenderer.domElement.className = 'labels';
     container.appendChild(this.labelRenderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(50, 1, 1, 9000);
+    this.camera = new THREE.PerspectiveCamera(FOV, 1, 1, 9000);
     this.camera.position.set(0, 900, 1150);
 
     this.fog = new THREE.FogExp2(FOG_COLOR.getHex(), 0.0016);
@@ -122,8 +123,12 @@ export class World {
    * Shift the projection centre so the focused object sits in the middle of the area the
    * info panel leaves free, instead of hiding behind it.
    */
-  setViewOffset(x: number, y: number): void {
+  setViewOffset(x: number, y: number, snap = false): void {
     this.viewOffsetTarget.set(x, y);
+    if (snap) {
+      this.viewOffset.copy(this.viewOffsetTarget);
+      this.applyViewOffset();
+    }
   }
 
   private applyViewOffset(): void {

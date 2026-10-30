@@ -108,17 +108,6 @@ export interface SetPiece {
  */
 export const SET_PIECES: SetPiece[] = [
   {
-    kind: 'heighliner',
-    event: 'guild-monopoly',
-    eras: ['schools', 'imperium'],
-    lateral: 320,
-    lift: 34,
-    footprint: [-220, -110, 0, 110, 220].map((x) => ({ x, z: 0, r: 60 })),
-    keepInTrueScale: true,
-    label: { title: 'Guild heighliner', height: 40 },
-    note: 'The Spacing Guild monopoly, year zero of the calendar: no ship moves without a heighliner.',
-  },
-  {
     kind: 'arrakeen',
     event: 'atreides-arrive',
     eras: ['muaddib', 'atreides-empire'],
@@ -188,10 +177,26 @@ export const SET_PIECES: SetPiece[] = [
     note: "The Keep in Arrakeen, Muad'Dib's fortress, from which Alia rules as regent for the twins.",
   },
   {
+    kind: 'preacher',
+    event: 'preacher-arrives',
+    eras: ['atreides-empire'],
+    moment: 1,
+    lateral: 150,
+    footprint: [
+      { x: 0, z: -40, r: 60 },
+      { x: 0, z: 20, r: 80 },
+    ],
+    pad: { tint: '#b09a78', amount: 0.8 },
+    padRadius: 92,
+    label: { title: 'The Preacher', sub: "in the plaza before Alia's temple", height: 52 },
+    note: "The Preacher: blind Paul come back out of the desert, led by a boy, preaching against the priesthood raised in his own name to a throng in the plaza before Alia's temple in Arrakeen, on whose steps he is killed.",
+  },
+  {
     kind: 'desert-walk',
     event: 'paul-walks-desert',
     eras: ['atreides-empire'],
-    moment: 1,
+    // Only around its own event, so it never shares the screen, or the ground, with the Preacher.
+    moment: 0,
     // On the open right of the frame, away from the Jihad's fleet on the left, and clear of
     // where the path turns back on itself just beyond.
     along: 90,
@@ -236,7 +241,8 @@ export const SET_PIECES: SetPiece[] = [
   {
     kind: 'harvester',
     event: 'harkonnens-take-arrakis',
-    eras: ['imperium', 'muaddib'],
+    // The Harkonnen years only: in Dune's own stretch its ground is Arrakeen's.
+    eras: ['imperium'],
     lateral: 140,
     footprint: [{ x: 0, z: 0, r: 105 }],
     pad: { tint: '#b3431a', amount: 0.75 },
@@ -308,9 +314,20 @@ export const SET_PIECES: SetPiece[] = [
     note: 'Rakis destroyed by the Honored Matres: the city of Keen in ruins and burning, their attack ships passing low over it, and the planet left fused glass.',
   },
   {
+    kind: 'heighliner',
+    event: 'guild-monopoly',
+    eras: ['schools', 'imperium'],
+    lateral: 320,
+    lift: 34,
+    footprint: [-220, -110, 0, 110, 220].map((x) => ({ x, z: 0, r: 60 })),
+    keepInTrueScale: true,
+    label: { title: 'Guild heighliner', height: 40 },
+    note: 'The Spacing Guild monopoly, year zero of the calendar: no ship moves without a heighliner.',
+  },
+  {
     kind: 'worm',
     event: 'harkonnens-take-arrakis',
-    eras: ['imperium', 'muaddib'],
+    eras: ['imperium'],
     lateral: 260,
     footprint: [{ x: 0, z: 0, r: 118 }],
     worm: { scale: 0.8, loopAlong: 110, loopAcross: 60, speed: 18, phase: 0 },
@@ -410,21 +427,6 @@ export const SET_PIECES: SetPiece[] = [
     lateral: 0,
     footprint: [{ x: 0, z: 0, r: ARRAKEEN_FIELD.r }],
     note: "House Atreides comes down to Arrakeen to take the fief from the Harkonnens: its frigates landing one after another on the city's field, and the Atreides banners run up the poles once the first is down.",
-  },
-  {
-    kind: 'preacher',
-    event: 'preacher-arrives',
-    eras: ['atreides-empire'],
-    moment: 1,
-    lateral: 150,
-    footprint: [
-      { x: 0, z: -40, r: 60 },
-      { x: 0, z: 20, r: 80 },
-    ],
-    pad: { tint: '#b09a78', amount: 0.8 },
-    padRadius: 92,
-    label: { title: 'The Preacher', sub: "in the plaza before Alia's temple", height: 52 },
-    note: "The Preacher: blind Paul come back out of the desert, led by a boy, preaching against the priesthood raised in his own name to a throng in the plaza before Alia's temple in Arrakeen, on whose steps he is killed.",
   },
   {
     kind: 'arrakeen-falls',
