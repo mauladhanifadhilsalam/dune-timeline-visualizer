@@ -200,6 +200,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       'By imperial decree the Atreides trade Caladan for Arrakis and its spice. The gift is a trap: Shaddam fears the Duke\'s popularity in the Landsraad and his army, and lends the Harkonnens his Sardaukar to destroy him.',
     people: ['Duke Leto Atreides', 'Paul Atreides', 'Lady Jessica', 'Shaddam IV'],
+    places: ['arrakeen'],
   },
   {
     id: 'hunter-seeker',
@@ -213,6 +214,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       "On their first night in Arrakeen a hunter-seeker, a poisoned flying needle, comes for Paul. He catches it bare-handed. The housekeeper Shadout Mapes gives Jessica a crysknife as the Fremen's sign that she may be the one their legends foretold.",
     people: ['Paul Atreides', 'Shadout Mapes'],
+    places: ['arrakeen'],
   },
   {
     id: 'fall-of-arrakeen',
@@ -226,6 +228,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       "Dr. Wellington Yueh, his Suk conditioning broken by the Harkonnens' hold on his wife, drops the shields. Harkonnen troops and Sardaukar in Harkonnen livery take Arrakeen. Captive, Duke Leto bites a poison-gas tooth meant for the Baron. It kills Piter de Vries and the Duke himself; the Baron survives.",
     people: ['Wellington Yueh', 'Duke Leto Atreides', 'Baron Vladimir Harkonnen', 'Piter de Vries'],
+    places: ['arrakeen'],
   },
   {
     id: 'duncan-dies',
@@ -345,6 +348,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       "Sardaukar strike Sietch Tabr. Paul's infant son by Chani is killed. Dune calls this child Leto II, the same name his twin half-brother will carry. Alia is taken to the Emperor, and later says she allowed herself to be captured.",
     people: ['Leto (son of Paul)', 'Chani', 'Alia Atreides'],
+    places: ['sietch-tabr'],
   },
   {
     id: 'battle-of-arrakeen',
@@ -359,6 +363,7 @@ export const EVENTS: TimelineEvent[] = [
       'In the third year of the Desert War, under cover of a great storm, family atomics breach the Shield Wall and Fremen ride sandworms into the Imperial camp. Alia kills the Baron with a gom jabbar; Paul kills Feyd-Rautha in single combat. By threatening to destroy the spice, Paul takes the Guild and the throne.',
     people: ['Paul Atreides', 'Alia Atreides', 'Baron Vladimir Harkonnen', 'Feyd-Rautha', 'Shaddam IV', 'Gurney Halleck'],
     dateNote: "The Almanak's death years for the Baron and for Glossu Rabban (both 10,193) fix this battle.",
+    places: ['arrakeen', 'old-gap'],
   },
   {
     id: 'paul-emperor',
@@ -372,6 +377,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       "Shaddam abdicates. Paul will marry Princess Irulan for the throne but never as a wife; Chani keeps his love. Jessica has the book's last word: history will call the concubines wives.",
     people: ['Paul Atreides', 'Irulan', 'Chani', 'Shaddam IV'],
+    places: ['arrakeen'],
   },
 
   // ── VI. The Atreides Empire (Messiah, Children) ─────────────────────────────────────────
@@ -505,6 +511,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       "Alia rules in the twins' name, married to the restored Duncan Idaho. The religion of Muad'Dib hardens into a priesthood and bureaucracy that Paul's own legend would have condemned.",
     people: ['Alia Atreides', 'Duncan Idaho', 'Leto II', 'Ghanima'],
+    places: ['arrakeen'],
   },
   {
     id: 'preacher-arrives',
@@ -521,6 +528,7 @@ export const EVENTS: TimelineEvent[] = [
     people: ['The Preacher', 'Lady Jessica', 'Leto II', 'Ghanima'],
     dateNote:
       'The twins are nine; it is nine years since Paul walked into the desert. Fan chronologies usually print 10219 here. They get there by assumptions Herbert never states.',
+    places: ['arrakeen'],
   },
   {
     id: 'alia-abomination',
@@ -577,6 +585,7 @@ export const EVENTS: TimelineEvent[] = [
     summary:
       'Revealed at last as Paul Atreides, the Preacher is stabbed with a crysknife on the Temple plaza steps in Arrakeen, in front of the son who has taken the path he would not.',
     people: ['Paul Atreides', 'Leto II', 'Alia Atreides'],
+    places: ['arrakeen'],
   },
   {
     id: 'alia-dies',

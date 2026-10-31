@@ -72,6 +72,8 @@ export interface TimelineEvent {
   shiftEnd?: boolean;
   /** Remark about the date itself, shown beside it. */
   dateNote?: string;
+  /** Where it happens, by place on the map of Arrakis (data/arrakis.ts), when the book says. */
+  places?: string[];
 }
 
 /** Two of Herbert's own statements that cannot both be true as written. */

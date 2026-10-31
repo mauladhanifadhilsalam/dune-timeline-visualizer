@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -39,6 +39,11 @@ const LONG_HOP = 420;
  */
 export class World {
   readonly scene = new THREE.Scene();
+  /** What is drawn: the timeline's scene, or another (the map of Arrakis) shown in its place. */
+  private shown: THREE.Scene = this.scene;
+  private renderPass!: RenderPass;
+  /** Height of the ground under a point, which the camera never sinks below. */
+  groundAt: (x: number, z: number) => number = duneHeight;
   readonly camera: THREE.PerspectiveCamera;
   readonly renderer: THREE.WebGLRenderer;
   readonly labelRenderer: CSS2DRenderer;
@@ -89,7 +94,8 @@ export class World {
     });
 
     this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.6, 0.45, 0.96);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
@@ -136,6 +142,19 @@ export class World {
     if (Math.abs(o.x) < 0.5 && Math.abs(o.y) < 0.5) this.camera.clearViewOffset();
     else this.camera.setViewOffset(this.width, this.height, o.x, o.y, this.width, this.height);
     this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Draw another scene with the same camera and controls, or the timeline's again. The names in the
+   * scene left behind are hidden, as the label renderer only looks after the scene it draws.
+   */
+  showScene(scene: THREE.Scene): void {
+    if (scene === this.shown) return;
+    this.shown.traverse((o) => {
+      if (o instanceof CSS2DObject) o.element.style.display = 'none';
+    });
+    this.shown = scene;
+    this.renderPass.scene = scene;
   }
 
   /** The haze the distance fades into, which is also the backdrop behind everything. */
@@ -225,7 +244,7 @@ export class World {
     this.controls.update();
 
     // Never under the sand.
-    const ground = duneHeight(this.camera.position.x, this.camera.position.z) + 3;
+    const ground = this.groundAt(this.camera.position.x, this.camera.position.z) + 3;
     if (this.camera.position.y < ground) this.camera.position.y = ground;
 
     // Thin the haze as the camera climbs, so the overview can see the whole path.
@@ -243,6 +262,6 @@ export class World {
 
   render(): void {
     this.composer.render();
-    this.labelRenderer.render(this.scene, this.camera);
+    this.labelRenderer.render(this.shown, this.camera);
   }
 }

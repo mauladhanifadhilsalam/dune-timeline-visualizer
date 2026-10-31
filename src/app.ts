@@ -4,6 +4,8 @@ import type { Category, Certainty, Mode, NovelId, Reckoning } from './data/types
 import { createDesert } from './scene/desert';
 import { defaultEye, eventDistance } from './scene/framing';
 import { SkyLight } from './scene/skies';
+import { ArrakisMap } from './scene/map/arrakis-map';
+import { PLACES } from './data/arrakis';
 import { WorldProps } from './scene/props';
 import { GoldenPath, createPathMesh, makeFrame, type PathFrame } from './scene/path';
 import { TimelineLayer, type Layers } from './scene/timeline';
@@ -143,9 +145,12 @@ export function createApp(): void {
 
   // ── UI ────────────────────────────────────────────────────────────────────────────────────
   const panel = new Panel($('#panel'), {
-    onClose: () => select(null),
+    onClose: () => (mapOpen ? showPlace(null, false) : select(null)),
     onSelect: (id) => select(id),
     onResize: () => updateViewOffset(),
+    onPlace: (id) => openMap(id),
+    onLeaveMap: () => closeMap(),
+    onMapOverview: () => showPlace(null),
   });
   const scrubber = new Scrubber($('#scrubber'), res, {
     onScrub: (t, final) => scrubTo(t, final),
@@ -358,6 +363,7 @@ export function createApp(): void {
   }
 
   function overview(): void {
+    if (mapOpen) return showPlace(null);
     stopTour();
     const p = overviewPose();
     world.flyTo(p.eye, p.target, reducedMotion.matches ? 0 : 1.8);
@@ -388,6 +394,8 @@ export function createApp(): void {
   // ── Selection & hover ────────────────────────────────────────────────────────────────────
   function select(id: string | null, opts: { fly?: boolean; done?: () => void } = {}): void {
     const { fly = true, done } = opts;
+    // Choosing an event from anywhere (the map's own cards, search, the index) goes back to the path.
+    if (id && mapOpen) leaveMap();
     if (id && !res.byId.has(id)) id = null;
     if (id && !isVisible(id)) {
       // Picked from search/index while filtered out: reveal rather than refuse.
@@ -447,6 +455,87 @@ export function createApp(): void {
   }
   new ResizeObserver(updateViewOffset).observe($('#panel'));
   window.addEventListener('resize', updateViewOffset);
+
+  // ── The map of Arrakis ──────────────────────────────────────────────────────────────────
+  /** Built the first time it is opened: a few hundred milliseconds no one should wait for at the start. */
+  let arrakis: ArrakisMap | null = null;
+  let mapOpen = false;
+  let mapPlace: string | null = null;
+  /** The timeline's camera and limits from before the map opened, to go back to. */
+  let beforeMap: { eye: THREE.Vector3; target: THREE.Vector3; ground: (x: number, z: number) => number; max: number; polar: number } | null =
+    null;
+  const mapBtn = $('#btn-map');
+  const eventsAt = (place: string) => res.events.filter((e) => e.places?.includes(place));
+
+  function openMap(place: string | null = null): void {
+    stopTour();
+    arrakis ??= new ArrakisMap({ onPick: (id) => showPlace(id), eventsAt: (id) => eventsAt(id).length });
+    if (!mapOpen) {
+      mapOpen = true;
+      const c = world.controls;
+      beforeMap = { eye: world.camera.position.clone(), target: c.target.clone(), ground: world.groundAt, max: c.maxDistance, polar: c.maxPolarAngle };
+      world.showScene(arrakis.scene);
+      world.groundAt = arrakis.groundAt;
+      c.maxDistance = 6000;
+      c.maxPolarAngle = Math.PI * 0.42;
+      $('#app').classList.add('is-map');
+      mapBtn.setAttribute('aria-pressed', 'true');
+      setHover(null);
+      if (!place) {
+        flashHint(
+          coarsePointer.matches
+            ? 'Tap a name for what the book says of it. Tap the map button to go back.'
+            : 'Choose a name for what the book says of it. M or Esc goes back to the timeline.',
+          5500,
+        );
+      }
+    }
+    showPlace(place);
+  }
+
+  /** Show one place on the map, with its card, or the whole map; `fly` false keeps the camera. */
+  function showPlace(place: string | null, fly = true): void {
+    if (!arrakis) return;
+    mapPlace = place;
+    arrakis.select(place);
+    const p = PLACES.find((x) => x.id === place);
+    if (p) panel.renderPlace(p, eventsAt(p.id));
+    else panel.close();
+    if (fly) {
+      const pose = arrakis.pose(place, world.width / world.height);
+      world.flyTo(pose.eye, pose.target, reducedMotion.matches ? 0 : 1.6);
+    }
+    history.replaceState(null, '', `#map${place ? `/${place}` : ''}`);
+    updateViewOffset();
+  }
+
+  /** Back to the timeline's scene, with the camera where it was. */
+  function leaveMap(): void {
+    if (!mapOpen || !beforeMap) return;
+    mapOpen = false;
+    mapPlace = null;
+    world.showScene(world.scene);
+    world.groundAt = beforeMap.ground;
+    world.controls.maxDistance = beforeMap.max;
+    world.controls.maxPolarAngle = beforeMap.polar;
+    world.flyTo(beforeMap.eye, beforeMap.target, 0);
+    $('#app').classList.remove('is-map');
+    mapBtn.setAttribute('aria-pressed', 'false');
+  }
+
+  /** Close the map, back to whatever event was open before. */
+  function closeMap(): void {
+    leaveMap();
+    if (state.selected) {
+      renderPanel();
+      history.replaceState(null, '', `#${state.selected}`);
+    } else {
+      panel.close();
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+    updateViewOffset();
+  }
+  mapBtn.addEventListener('click', () => (mapOpen ? closeMap() : openMap()));
 
   // ── Tour ────────────────────────────────────────────────────────────────────────────────
   /**
@@ -723,7 +812,13 @@ export function createApp(): void {
   const hint = $('#hint');
   let hintTimer = 0;
   // The hint is a status line screen readers follow, so it stays in the page and only fades; its
-  // text is cleared once it has faded, so it is not read out again.
+  // text is cleared once it has faded, so it is not read out again. Cleared when the fade ends, not
+  // after a fixed time, which on a slow device can come before the fade has shown and leave an empty
+  // box; the timer is for when there is no fade to end.
+  const clearHint = () => {
+    if (!hint.classList.contains('on')) hint.textContent = '';
+  };
+  hint.addEventListener('transitionend', clearHint);
   function showHint(text: string): void {
     window.clearTimeout(hintTimer);
     hint.textContent = text;
@@ -732,7 +827,7 @@ export function createApp(): void {
   function hideHint(): void {
     window.clearTimeout(hintTimer);
     hint.classList.remove('on');
-    hintTimer = window.setTimeout(() => (hint.textContent = ''), 400);
+    hintTimer = window.setTimeout(clearHint, 2000);
   }
   function flashHint(text: string, ms = 4200): void {
     showHint(text);
@@ -772,7 +867,7 @@ export function createApp(): void {
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
     const quick = performance.now() - down.t < 450;
     down = null;
-    if (moved > 6 || !quick) return;
+    if (moved > 6 || !quick || mapOpen) return;
     setNdc(e);
     const id = pickAt();
     if (id) select(id);
@@ -786,7 +881,19 @@ export function createApp(): void {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     // Nothing to step through or tour until the desert is entered.
     if (!entered) return;
+    if (mapOpen) {
+      if (e.key === 'Escape') {
+        if (mapPlace) showPlace(null, false);
+        else closeMap();
+      } else if (e.key === 'm' || e.key === 'M') closeMap();
+      else if (e.key === 'o' || e.key === 'O') showPlace(null);
+      return;
+    }
     switch (e.key) {
+      case 'm':
+      case 'M':
+        openMap();
+        break;
       case 'ArrowRight':
       case 'ArrowLeft': {
         if (t.closest('.scrub-track')) return;
@@ -863,7 +970,7 @@ export function createApp(): void {
    * Into the desert: at the moment a link names, on the guided tour from the beginning, or (by
    * default) at Paul's birth to explore from there.
    */
-  function enter(choice: { at?: string; tour?: boolean } = {}): void {
+  function enter(choice: { at?: string; tour?: boolean; map?: string | null } = {}): void {
     if (entered) return;
     entered = true;
     // Focus would stay on the intro's button, now hidden, and the keyboard shortcuts ignore keys
@@ -880,7 +987,8 @@ export function createApp(): void {
           : 'Click any light, press → to step through time, or Space for a guided tour.',
         6500,
       );
-    if (choice.at && res.byId.has(choice.at)) select(choice.at);
+    if (choice.map !== undefined) openMap(choice.map);
+    else if (choice.at && res.byId.has(choice.at)) select(choice.at);
     else if (choice.tour) {
       startTour();
       flashHint(coarsePointer.matches ? 'Tap anywhere to stop the tour.' : 'Click, drag or press Space to stop the tour.', 5000);
@@ -890,10 +998,22 @@ export function createApp(): void {
   $('#btn-enter').addEventListener('click', showPrimer);
   $('#btn-start-tour').addEventListener('click', () => enter({ tour: true }));
   $('#btn-explore').addEventListener('click', () => enter());
-  if (initial && res.byId.has(initial)) enter({ at: initial }); // deep links skip the intro
+  /** `#map`, or `#map/arrakeen` for one place: null for the whole map, undefined for no map. */
+  const mapLink = (hash: string): string | null | undefined => {
+    if (hash !== 'map' && !hash.startsWith('map/')) return undefined;
+    const place = hash.slice(4);
+    return PLACES.some((p) => p.id === place) ? place : null;
+  };
+  // Deep links skip the intro.
+  if (mapLink(initial) !== undefined) enter({ map: mapLink(initial) });
+  else if (initial && res.byId.has(initial)) enter({ at: initial });
   window.addEventListener('hashchange', () => {
     const id = location.hash.slice(1);
-    if (id && id !== state.selected && res.byId.has(id)) {
+    const map = mapLink(id);
+    if (map !== undefined) {
+      if (!entered) enter({ map });
+      else if (!mapOpen || map !== mapPlace) openMap(map);
+    } else if (id && id !== state.selected && res.byId.has(id)) {
       if (!entered) enter({ at: id });
       else select(id);
     }
@@ -940,6 +1060,15 @@ export function createApp(): void {
       tourStep();
     }
     if (state.touring && tourAt !== null) tourProgress(1 - Math.max(tourAt - elapsed, 0) / tourStay);
+
+    // On the map, nothing of the timeline needs moving: its scene is not even drawn.
+    if (mapOpen && arrakis) {
+      world.update(dt);
+      arrakis.update(world.camera, world.width, world.height, blockedRects());
+      world.render();
+      requestAnimationFrame(frameLoop);
+      return;
+    }
 
     if (morph) {
       // Keep the selected marker in frame while everything slides.

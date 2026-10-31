@@ -163,6 +163,7 @@ export function renderAbout(root: HTMLElement, res: Resolved, undated: UndatedNo
           h('li', null, h('kbd', null, 'Space'), ' start or stop the tour'),
           h('li', null, h('kbd', null, '/'), ' search'),
           h('li', null, h('kbd', null, 'O'), ' overview · ', h('kbd', null, 'T'), ' story/true scale · ', h('kbd', null, 'R'), ' reckoning'),
+          h('li', null, h('kbd', null, 'M'), ' the map of Arrakis, and back'),
           h('li', null, h('kbd', null, 'Esc'), ' close'),
           h('li', null, 'Drag to orbit, right-drag or two fingers to pan, scroll or pinch to zoom.'),
         ),
@@ -170,7 +171,7 @@ export function renderAbout(root: HTMLElement, res: Resolved, undated: UndatedNo
       h(
         'p',
         { class: 'fineprint' },
-        'An unofficial fan project, not affiliated with or endorsed by the Herbert estate or any publisher or studio. Summaries are paraphrased; quotations are a few words long.',
+        'An unofficial fan project, not affiliated with or endorsed by the Herbert estate or any publisher or studio. Summaries are paraphrased; quotations are a few words long. The map of Arrakis is our own relief model, after the geography of the map and Cartographic Notes in Dune.',
       ),
     ),
   );

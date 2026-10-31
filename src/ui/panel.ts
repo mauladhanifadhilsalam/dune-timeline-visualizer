@@ -9,6 +9,7 @@ import {
   NOVEL_COLOR,
   formatRange,
 } from '../timeline/format';
+import { PLACES, type Place, type PlaceKind } from '../data/arrakis';
 import { h } from './dom';
 
 export interface PanelHandlers {
@@ -16,7 +17,30 @@ export interface PanelHandlers {
   onSelect: (id: string) => void;
   /** The card changed size (collapsed or expanded), so the view can re-centre in what it leaves. */
   onResize: () => void;
+  /** A place on the map of Arrakis was chosen from the card. */
+  onPlace: (id: string) => void;
+  /** Leave the map for the timeline. */
+  onLeaveMap: () => void;
+  /** The whole map, from one place on it. */
+  onMapOverview: () => void;
 }
+
+const KIND_LABEL: Record<PlaceKind, string> = {
+  city: 'City',
+  village: 'Village',
+  sietch: 'Sietch',
+  cave: 'Cave',
+  shrine: 'Shrine',
+  peak: 'Mountain',
+  ridge: 'Ridge',
+  rock: 'Rock',
+  pass: 'Pass',
+  basin: 'Basin',
+  depression: 'Depression',
+  region: 'Region',
+  pole: 'Pole',
+  pointer: 'Beyond the map',
+};
 
 /**
  * The detail card for one event. Re-rendered on selection or reckoning change. On a phone it is a
@@ -43,8 +67,8 @@ export class Panel {
     this.handlers.onResize();
   }
 
-  /** The sheet's handle and its collapsed bar: title and year, with steps either side. */
-  private sheetBar(ev: ResolvedEvent, prev: ResolvedEvent | null, next: ResolvedEvent | null): HTMLElement {
+  /** The sheet's handle and its collapsed bar: title and a line under it, with steps either side. */
+  private sheetBar(title: string, sub: string, prev: (() => void) | null, next: (() => void) | null): HTMLElement {
     // A swipe that ends on a button would also click it; a swipe is not a tap.
     let swiped = false;
     const tap = (fn: () => void) => () => {
@@ -70,18 +94,18 @@ export class Panel {
         { class: 'sheet-peek' },
         h(
           'button',
-          { class: 'peek-step', disabled: !prev, 'aria-label': 'Earlier event', onclick: tap(() => prev && this.handlers.onSelect(prev.id)) },
+          { class: 'peek-step', disabled: !prev, 'aria-label': 'Earlier event', onclick: tap(() => prev?.()) },
           '‹',
         ),
         h(
           'button',
           { class: 'peek-title', onclick: tap(() => this.setCollapsed(false)) },
-          h('span', { class: 'peek-name' }, ev.title),
-          h('span', { class: 'peek-year' }, formatRange(ev.y, ev.yEnd, ev.approx)),
+          h('span', { class: 'peek-name' }, title),
+          h('span', { class: 'peek-year' }, sub),
         ),
         h(
           'button',
-          { class: 'peek-step', disabled: !next, 'aria-label': 'Later event', onclick: tap(() => next && this.handlers.onSelect(next.id)) },
+          { class: 'peek-step', disabled: !next, 'aria-label': 'Later event', onclick: tap(() => next?.()) },
           '›',
         ),
       ),
@@ -179,6 +203,23 @@ export class Panel {
             h('p', { class: 'panel-people' }, ev.people.join(' · ')),
           )
         : null,
+      ev.places?.length
+        ? h(
+            'div',
+            { class: 'panel-section' },
+            h('h3', null, 'Where'),
+            h(
+              'p',
+              { class: 'panel-places' },
+              ...ev.places.map((id) => {
+                const place = PLACES.find((p) => p.id === id);
+                return place
+                  ? h('button', { class: 'link-btn place-link', onclick: () => this.handlers.onPlace(id) }, `${place.name} on the map`)
+                  : null;
+              }),
+            ),
+          )
+        : null,
       conflicts.length
         ? h(
             'div',
@@ -233,8 +274,79 @@ export class Panel {
     );
 
     this.root.style.setProperty('--c', NOVEL_COLOR[ev.novel]);
+    const bar = this.sheetBar(
+      ev.title,
+      formatRange(ev.y, ev.yEnd, ev.approx),
+      prev && (() => this.handlers.onSelect(prev.id)),
+      next && (() => this.handlers.onSelect(next.id)),
+    );
+    this.show(bar, body, nav);
+  }
+
+  /** The card for a place on the map of Arrakis: what the book says of it, and what happens there. */
+  renderPlace(place: Place, events: ResolvedEvent[]): void {
+    const closeBtn = h(
+      'button',
+      { class: 'icon-btn panel-close', 'aria-label': 'Close details', onclick: () => this.handlers.onClose() },
+      '×',
+    );
+    const alt = place.alt === undefined ? null : `${place.altNote ? `${place.altNote} ` : ''}${place.alt < 0 ? '−' : ''}${Math.abs(place.alt).toLocaleString('en')} m`;
+    const body = h(
+      'div',
+      { class: 'panel-body', id: 'panel-body' },
+      h('div', { class: 'panel-head' }, h('span', { class: 'panel-era' }, 'The map of Arrakis'), closeBtn),
+      h('h2', { class: 'panel-title', id: 'panel-title' }, place.name),
+      h(
+        'div',
+        { class: 'panel-date' },
+        h('span', { class: 'chip' }, KIND_LABEL[place.kind]),
+        alt ? h('span', { class: 'panel-year', title: 'Above the Great Bled, the open desert' }, alt) : null,
+      ),
+      place.note ? h('p', { class: 'panel-summary' }, place.note) : null,
+      events.length
+        ? h(
+            'div',
+            { class: 'panel-section' },
+            h('h3', null, 'Here in the books'),
+            h(
+              'ul',
+              { class: 'place-events' },
+              ...events.map((e) =>
+                h(
+                  'li',
+                  null,
+                  h('button', { class: 'link-btn', onclick: () => this.handlers.onSelect(e.id) }, e.title),
+                  h('span', { class: 'muted' }, ` · ${formatRange(e.y, e.yEnd, e.approx)}`),
+                ),
+              ),
+            ),
+          )
+        : null,
+      h('p', { class: 'panel-source' }, 'After the map and Cartographic Notes in Dune. Heights are above the Great Bled.'),
+    );
+    const nav = h(
+      'nav',
+      { class: 'panel-nav', 'aria-label': 'Leave this place' },
+      h(
+        'button',
+        { class: 'nav-btn', onclick: () => this.handlers.onLeaveMap(), title: 'Back to the timeline (M)' },
+        h('span', { class: 'nav-dir' }, '← Timeline'),
+        h('span', { class: 'nav-title' }, 'Back to the path'),
+      ),
+      h(
+        'button',
+        { class: 'nav-btn nav-next', onclick: () => this.handlers.onMapOverview() },
+        h('span', { class: 'nav-dir' }, 'The whole map'),
+        h('span', { class: 'nav-title' }, 'Arrakis'),
+      ),
+    );
+    this.root.style.setProperty('--c', '#d9b467');
+    this.show(this.sheetBar(place.name, alt ?? KIND_LABEL[place.kind], null, null), body, nav);
+  }
+
+  private show(...parts: HTMLElement[]): void {
     this.root.classList.toggle('is-collapsed', this.collapsed);
-    this.root.replaceChildren(this.sheetBar(ev, prev, next), body, nav);
+    this.root.replaceChildren(...parts);
     this.root.hidden = false;
     this.root.scrollTop = 0;
   }

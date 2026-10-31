@@ -104,6 +104,15 @@ npm run e2e       # browser tests against the build (see Tests below)
   - a damp olive haze over Leto II's green Arrakis, under a softer, yellower sun
   - smoke-red, the sun a coal, as Rakis burns
   - colder and paler on Chapterhouse, the Bene Gesserit's own world
+- **The map of Arrakis.** The Map button (or `M`) swaps the path for a relief model of the planet's north
+  polar regions, after the map and Cartographic Notes in *Dune*: the Shield Wall round the Imperial Basin
+  with Arrakeen at its rim and the Old Gap cut through it, Carthag, Sietch Tabr, Mt. Idaho, the Polar Sink,
+  the false walls, Harg Pass and the shrine of Leto's skull, the Great Flat and the ergs, with every place
+  the map names and every altitude the book gives (heights exaggerated about twelve times, as relief models
+  are). Choosing a name shows what the book says of it and the events that happen there; an event's card
+  links to its place on the map (`#map/arrakeen` links straight to one). It is our own model of the book's
+  geography, not a copy of its map: the names, where they lie and the stated heights are Herbert's, the
+  shape of the land between them is ours. Only events whose place the books make plain are linked.
 - **Camera.** It travels along the golden path itself, riding beside the thread through every bend at the
   angle you've orbited to.
   - A step to a neighbouring event takes about two seconds.
@@ -163,10 +172,11 @@ Convention and Pardot Kynes's arrival. They can't honestly be put on an axis.
 
 ```
 src/
-  data/          events, eras, novels, lifespans, contradictions (hand-curated, tested)
+  data/          events, eras, novels, lifespans, contradictions, places of Arrakis (hand-curated, tested)
   timeline/      reckoning resolution, story/true time scales, placement morphing, formatting
   scene/         Three.js: desert (terrain ecology shader, forest, spice motes), sky and moons,
                  the path, markers and labels, camera
+  scene/map/     the map of Arrakis: relief (heights from the book's features) and the model
   scene/props/   set pieces: catalog (what stands where and when), placement solver, heighliner,
                  Arrakeen, harvester, sandworm, crysknife, wreckage, storm, Shield Wall and the
                  Battle of Arrakeen (collapse, worm charge), thumper, the walk, the Idaho River,
@@ -205,6 +215,7 @@ and the scene runs on a fake clock, one fixed step per frame, so every run sees 
 - `phone`: the event card is a short sheet on a phone and folds down to a bar
 - `battle`: the Battle of Arrakeen waits for the camera to come back from the Sietch Tabr raid
 - `tour`: the guided tour stays at the landings until they have played out, and says so
+- `map`: the map of Arrakis opens from an event's place, names its places without overlap, and leads back
 - `scenes`: every scene stands in clear view where its event opens: at least half of its ground on screen,
   beside the card and out from under the labels' boxes. Dunes in front of a scene are not checked.
 
@@ -299,6 +310,7 @@ file.
 | --- | --- |
 | `←` `→` | Earlier / later event |
 | `Space` | Start or stop the guided tour |
+| `M` | The map of Arrakis, and back to the path |
 | `/` | Search |
 | `O` | Overview |
 | `T` | Story / true scale |
