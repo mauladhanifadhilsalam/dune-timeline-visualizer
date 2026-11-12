@@ -21,14 +21,14 @@ const CYCLE = CROSSING_SEEN + 5;
 // The whole scene within about 80 units of its centre, so it fits one frame. They walk the way
 // the story goes, toward the rock ahead along the path where Stilgar's troop waits at the next
 // event; the thumper drums behind them, and the worm comes in from far behind it.
-const FROM = new THREE.Vector2(-78, 30);
+const FROM = new THREE.Vector2(-62, 30);
 // To the foot of the rock on its open side, clear of the event's own label in front of it.
 const TO = new THREE.Vector2(CROSSING_ROCK.x - 4, CROSSING_ROCK.z + 32);
 const THUMPER = new THREE.Vector2(-62, -42);
 /** A patch of drum sand on their way, which booms under a footstep. */
 const DRUM = { x: -14, z: 18, r: 13 };
 /** People are drawn far larger than life, or they vanish in the dunes. */
-const FIGURE = 5.5;
+const FIGURE = 9.5;
 
 /** Shared by the scene and the troop that waits on its rock: sand height at a local point. */
 class LocalGround {

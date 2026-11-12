@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SKIN, figureGeometry } from './figure';
+import { SKIN, figureGeometry, markFigure } from './figure';
 import type { Particles } from './particles';
 import { buildWormHead, wormBodyAssets } from './sandworm';
 
@@ -72,6 +72,7 @@ export class WormCharge {
       new THREE.InstancedMesh(parts.head, skin, Math.max(worms * this.riderCount, 1)),
       new THREE.InstancedMesh(parts.hood, cloth, Math.max(worms * this.riderCount, 1)),
     ];
+    markFigure(this.riders[0]);
     for (const r of this.riders) {
       r.frustumCulled = false;
       r.count = worms * this.riderCount;
@@ -158,7 +159,7 @@ export class WormCharge {
         this.dummy.position.copy(a).add(bp).multiplyScalar(0.5);
         this.dummy.position.y += r * 0.9;
         this.dummy.rotation.set(0, Math.atan2(a.x - bp.x, a.z - bp.z), 0);
-        this.dummy.scale.setScalar(3.8);
+        this.dummy.scale.setScalar(5.5);
         this.dummy.updateMatrix();
         for (const m of this.riders) m.setMatrixAt(w * this.riderCount + k, this.dummy.matrix);
       }

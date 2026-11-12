@@ -360,6 +360,7 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
     aD[i] = d;
     aSeed[i] = rand();
   }
+  mesh.geometry.setAttribute('aClear', new THREE.InstancedBufferAttribute(new Float32Array(N), 1));
   mesh.geometry.setAttribute('aPathT', new THREE.InstancedBufferAttribute(aT, 1));
   mesh.geometry.setAttribute('aPathDist', new THREE.InstancedBufferAttribute(aD, 1));
   mesh.geometry.setAttribute('aSeed', new THREE.InstancedBufferAttribute(aSeed, 1));
@@ -372,7 +373,8 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
         ${ECO_COMMON}
         attribute float aPathT;
         attribute float aPathDist;
-        attribute float aSeed;`,
+        attribute float aSeed;
+        attribute float aClear;`,
       )
       .replace(
         '#include <begin_vertex>',
@@ -387,6 +389,8 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
         g *= mix(1.0, smoothstep(meadow - 40.0, meadow, riverDist(treeXZ, meadow)), uRiver.z);
         // Nor on a road through the forest.
         g *= mix(1.0, smoothstep(22.0, 36.0, roadDist(treeXZ)), uRoadOn);
+        // Nor between an event and its scene, where it would hide the scene from the event's camera.
+        g *= 1.0 - aClear;
         transformed *= clamp(g * 1.5 - aSeed * 0.5, 0.0, 1.0);`,
       );
   };
@@ -638,6 +642,42 @@ function buildSand(
   return { points, uniforms };
 }
 
+/** A strip of ground kept clear of forest: from a point on the path out to a scene, widening to it. */
+export interface Sightline {
+  from: THREE.Vector2;
+  to: THREE.Vector2;
+  /** Half-width where it leaves the path, and where it reaches the scene. */
+  near: number;
+  far: number;
+}
+
+/** Mark the trees that stand in any of these strips, so the shader leaves them out. */
+function clearSightlines(trees: THREE.InstancedMesh, lines: Sightline[]): void {
+  const attr = trees.geometry.getAttribute('aClear') as THREE.InstancedBufferAttribute;
+  const m = new THREE.Matrix4();
+  const p = new THREE.Vector3();
+  for (let i = 0; i < trees.count; i++) {
+    trees.getMatrixAt(i, m);
+    p.setFromMatrixPosition(m);
+    let clear = 0;
+    for (const l of lines) {
+      const dx = l.to.x - l.from.x;
+      const dz = l.to.y - l.from.y;
+      const len2 = dx * dx + dz * dz;
+      if (len2 < 1) continue;
+      const k = ((p.x - l.from.x) * dx + (p.z - l.from.y) * dz) / len2;
+      if (k < 0 || k > 1) continue;
+      const off = Math.abs((p.x - l.from.x) * dz - (p.z - l.from.y) * dx) / Math.sqrt(len2);
+      if (off < l.near + (l.far - l.near) * k) {
+        clear = 1;
+        break;
+      }
+    }
+    attr.setX(i, clear);
+  }
+  attr.needsUpdate = true;
+}
+
 export interface Desert {
   group: THREE.Group;
   tick: (time: number, focus: THREE.Vector3, eye: THREE.Vector3, pixelRatio: number) => void;
@@ -658,12 +698,15 @@ export interface Desert {
   setEcologyVisibility: (green: number, scorch: number) => void;
   /** Colour the sky and the lights (the haze is the scene's fog, which the world holds). */
   setSky: (sky: SkyPalette) => void;
+  /** Keep the forest out of these strips, so the scenes behind them can be seen from their events. */
+  setSightlines: (lines: Sightline[]) => void;
 }
 
 export function createDesert(path: GoldenPath): Desert {
   const group = new THREE.Group();
   group.add(buildTerrain(path));
-  group.add(buildTrees(path));
+  const trees = buildTrees(path);
+  group.add(trees);
   // Sky, stars and moons ride with the camera so they show no parallax.
   const celestial = new THREE.Group();
   const sky = buildSky();
@@ -770,6 +813,9 @@ export function createDesert(path: GoldenPath): Desert {
       // Eased, so stepping across an era boundary grows the forest rather than switching it on.
       greenTarget = green;
       scorchTarget = scorch;
+    },
+    setSightlines(lines) {
+      clearSightlines(trees, lines);
     },
     setSky(p) {
       const u = sky.material.uniforms;

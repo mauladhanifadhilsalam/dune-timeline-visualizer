@@ -13,7 +13,7 @@ function buildRoyalCart(): THREE.Group {
   const outer = new THREE.Group();
   // Larger than life, like everything here, so it reads at the head of the file.
   const g = new THREE.Group();
-  g.scale.setScalar(1.5);
+  g.scale.setScalar(2.2);
   outer.add(g);
   const bed = new THREE.Mesh(new THREE.BoxGeometry(9, 1.6, 24), cartMat);
   bed.position.y = 2.6;
@@ -53,15 +53,15 @@ export class WeddingProcession {
   ) {
     this.file = new Procession({
       count: 18,
-      spacing: 8,
-      scale: 5.5,
+      spacing: 18,
+      scale: 14,
       cloak: '#3f3a48',
       route: [
         [0, 0],
         [1, 0],
       ],
       duration: 50,
-      leader: { object: buildRoyalCart(), ahead: 26 },
+      leader: { object: buildRoyalCart(), ahead: 44 },
       heightAt: road.heightAt,
     });
     this.group.add(this.file.group);

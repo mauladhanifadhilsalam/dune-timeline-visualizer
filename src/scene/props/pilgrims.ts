@@ -11,8 +11,8 @@ export class Pilgrims {
   readonly group = new THREE.Group();
   private readonly file = new Procession({
     count: 14,
-    spacing: 8,
-    scale: 4.5,
+    spacing: 12,
+    scale: 7.5,
     cloak: '#b39b74',
     route: [
       [-170, 50],

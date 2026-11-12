@@ -1,4 +1,6 @@
+import { BANQUET_SCALE } from './banquet';
 import { CROSSING_ROCK } from './crossing';
+import { PREACHER_SCALE } from './preacher';
 import { RIVER_FOOTPRINT } from './river';
 import { SIETCH_MOUTH } from './sietch';
 import type { WormOptions } from './sandworm';
@@ -115,8 +117,10 @@ export const SET_PIECES: SetPiece[] = [
   {
     kind: 'arrakeen',
     // Pinned to the middle of what happens in it: the Residency's shield failing and the attack
-    // after it both stand inside it, a step either side along the path.
+    // after it both stand inside it, in frame from their events. It stands a little ahead along the
+    // path, leaving the ground before it to the dinner at the Residency.
     event: 'shields-down',
+    along: 130,
     eras: ['muaddib', 'atreides-empire'],
     lateral: 210,
     footprint: [
@@ -176,10 +180,12 @@ export const SET_PIECES: SetPiece[] = [
     event: 'residency-dinner',
     eras: ['muaddib'],
     moment: 0,
+    // To the left of its event, so the Duke at the head of the table is clear of the event's label.
+    along: -45,
     lateral: 110,
-    footprint: [{ x: 0, z: 0, r: 45 }],
+    footprint: [{ x: 0, z: 0, r: 45 * BANQUET_SCALE }],
     pad: { tint: '#8d7a66', amount: 0.6 },
-    padRadius: 48,
+    padRadius: 48 * BANQUET_SCALE,
     note: "The dinner at the Residency: the great hall cut away to show the long table under glowglobes, the guests down both sides, the Duke at its head and Jessica at its foot, and the date palms in their tubs.",
   },
   {
@@ -231,12 +237,13 @@ export const SET_PIECES: SetPiece[] = [
     eras: ['atreides-empire'],
     moment: 1,
     lateral: 150,
+    // The temple and its dome behind, the plaza and the throng (out to about 46 in front) before it.
     footprint: [
-      { x: 0, z: -40, r: 60 },
-      { x: 0, z: 20, r: 80 },
+      { x: 0, z: -45 * PREACHER_SCALE, r: 55 * PREACHER_SCALE },
+      { x: 0, z: 12 * PREACHER_SCALE, r: 62 * PREACHER_SCALE },
     ],
     pad: { tint: '#b09a78', amount: 0.8 },
-    padRadius: 92,
+    padRadius: 80 * PREACHER_SCALE,
     label: { title: 'The Preacher', sub: "in the plaza before Alia's temple", height: 52 },
     note: "The Preacher: blind Paul come back out of the desert, led by a boy, preaching against the priesthood raised in his own name to a throng in the plaza before Alia's temple in Arrakeen, on whose steps he is killed.",
   },

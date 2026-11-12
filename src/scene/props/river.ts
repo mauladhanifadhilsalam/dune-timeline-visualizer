@@ -144,8 +144,9 @@ export class IdahoRiver {
       vertexColors: true,
       transparent: true,
       // No environment map to reflect, so a metallic surface would render black: keep it a lit,
-      // glossy dielectric and let the ripples catch the sun.
-      roughness: 0.22,
+      // glossy dielectric and let the ripples catch the sun. Not too glossy: looking into the low
+      // sun, a sharp glint blooms into a glare that hides the bridge and the procession on it.
+      roughness: 0.5,
       metalness: 0,
       depthWrite: false,
     });

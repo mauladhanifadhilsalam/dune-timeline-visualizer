@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Resolved } from '../../timeline/model';
 import type { Placement } from '../../timeline/placement';
-import { MAX_PADS, duneHeight, type Band, type Desert, type Pad } from '../desert';
+import { MAX_PADS, duneHeight, type Band, type Desert, type Pad, type Sightline } from '../desert';
 import { rng } from '../noise';
 import { GoldenPath, makeFrame } from '../path';
 import { eventLabelLift, eventLightHeight } from '../timeline';
@@ -226,6 +226,7 @@ export class WorldProps {
   private placement: Placement | null = null;
   private res: Resolved | null = null;
   private solved = false;
+  private sightlinesCleared = false;
 
   constructor(
     private readonly path: GoldenPath,
@@ -457,6 +458,49 @@ export class WorldProps {
       });
   }
 
+  /**
+   * The people in an event's scenes as they stand now, with the scene fully risen out of the sand
+   * (whatever its rise has reached this frame): where each one's feet are and how tall it is drawn,
+   * for checking they read in the event's view. People are what `markFigure` marks.
+   */
+  scenePeople(eventId: string): { at: THREE.Vector3; height: number }[] {
+    const out: { at: THREE.Vector3; height: number }[] = [];
+    const m = new THREE.Matrix4();
+    const scale = new THREE.Vector3();
+    const add = (world: THREE.Matrix4) => {
+      scale.setFromMatrixScale(world);
+      if (scale.y > 0.05) out.push({ at: new THREE.Vector3().setFromMatrixPosition(world), height: 0.95 * scale.y });
+    };
+    for (const piece of this.pieces) {
+      if (piece.event !== eventId) continue;
+      // A worm's rider rides with the worm, which swims outside the piece's own object.
+      piece.creature?.group.updateWorldMatrix(true, true);
+      piece.creature?.group.traverseVisible((o) => {
+        if (o.userData.figure) add(o.matrixWorld);
+      });
+      const root = piece.object;
+      if (!root?.visible || !piece.base) continue;
+      const position = root.position.clone();
+      const scaled = root.scale.clone();
+      root.position.copy(piece.base.center);
+      root.scale.setScalar(1);
+      root.updateWorldMatrix(true, true);
+      root.traverseVisible((o) => {
+        if (!o.userData.figure) return;
+        if (o instanceof THREE.InstancedMesh) {
+          for (let i = 0; i < o.count; i++) {
+            o.getMatrixAt(i, m);
+            add(m.premultiply(o.matrixWorld));
+          }
+        } else add(o.matrixWorld);
+      });
+      root.position.copy(position);
+      root.scale.copy(scaled);
+      root.updateWorldMatrix(true, true);
+    }
+    return out;
+  }
+
   /** Where the camera should turn to look when this event is chosen, if a scene asks for it. */
   turnTarget(eventId: string): THREE.Vector3 | null {
     const piece = this.pieces.find((p) => p.event === eventId && p.turn && p.base);
@@ -655,6 +699,29 @@ export class WorldProps {
     }
   }
 
+  /**
+   * A strip from each event's point on the path out to its scene, when it has one (a moment, which
+   * plays out in front of the camera), about half as wide as the scene where it reaches it.
+   * Landmarks that stand all era long keep the forest round them.
+   */
+  private sightlines(p: Placement): Sightline[] {
+    const out: Sightline[] = [];
+    for (const piece of this.pieces) {
+      const t = p.events.get(piece.event)?.t;
+      const base = piece.base;
+      if (t === undefined || !base || piece.moment === undefined || piece.side === 'near' || !piece.grounded) continue;
+      const from = this.path.frameAt(t, this.frame).pos;
+      const extent = Math.max(...piece.footprint.map((c) => Math.hypot(c.x, c.z) + c.r));
+      out.push({
+        from: new THREE.Vector2(from.x, from.z),
+        to: new THREE.Vector2(base.center.x, base.center.z),
+        near: 18,
+        far: Math.min(extent * 0.5, 60),
+      });
+    }
+    return out;
+  }
+
   /** Whether the camera has come to rest on this piece's own event. */
   private arrivedAt(piece: Piece | null, focusT: number, settled: boolean): boolean {
     const own = piece?.own;
@@ -711,6 +778,11 @@ export class WorldProps {
       const t = p.events.get(this.riverPiece.event)?.t;
       const k = t === undefined ? -1 : ts.indexOf(t);
       this.riverBreakT = k > 0 ? (ts[k - 1] + ts[k]) / 2 : -Infinity;
+    }
+    // The forest stays out of the way between each event and its scenes, so they can be seen.
+    if (!this.sightlinesCleared && this.solved) {
+      this.sightlinesCleared = true;
+      this.desert.setSightlines(this.sightlines(p));
     }
     // The Fremen ride from the breach at the Emperor's camp, wherever placement put the two.
     if (this.breachPiece?.base && this.campPiece?.base) this.breach.aim(this.campPiece.base.center);

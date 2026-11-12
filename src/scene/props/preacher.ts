@@ -1,12 +1,17 @@
 import * as THREE from 'three';
 import { haloTexture } from '../halo';
-import { SKIN, buildFigure, figureGeometry } from './figure';
+import { SKIN, buildFigure, figureGeometry, markFigure } from './figure';
 
 const stone = new THREE.MeshStandardMaterial({ color: '#b8a384', roughness: 0.9, flatShading: true });
 /** The temple's lamps, seen through its open door. */
 const lit = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffb36a').multiplyScalar(1.3) });
 
 const CROWD = 150;
+/**
+ * The temple and plaza are drawn this much larger than their own measurements, and the people a
+ * little larger again than the temple, so the throng reads without the plaza outgrowing its ground.
+ */
+export const PREACHER_SCALE = 1.4;
 /** Fremen stillsuit browns, pilgrims' pale robes, a few darker townsfolk. */
 const ROBES = ['#3a2c22', '#4a3a2c', '#6b5640', '#8f7a5c', '#b39b74', '#a28a62', '#2e3a33', '#5c4a3a'];
 /** Where he stands, on the top step. */
@@ -21,6 +26,8 @@ const PULPIT = new THREE.Vector3(0, 7.5, -24);
  */
 export class Preacher {
   readonly group = new THREE.Group();
+  /** The temple and plaza as drawn, before they are scaled up so the people in them read. */
+  private readonly stage = new THREE.Group();
   private readonly preacher = buildFigure('#2a221c');
   private readonly guide = buildFigure('#5a4632');
   private readonly crowd: THREE.InstancedMesh[];
@@ -32,7 +39,7 @@ export class Preacher {
     const box = (w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material = stone) => {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
       b.position.set(x, y, z);
-      this.group.add(b);
+      this.stage.add(b);
     };
     // Three broad steps up to a colonnade, a heavy entablature, a dark doorway and a dome behind.
     for (let k = 0; k < 3; k++) box(118 - k * 10, 2.5, 30 - k * 6, 0, 1.25 + k * 2.5, -25 - k * 3);
@@ -41,7 +48,7 @@ export class Preacher {
     for (const x of [-45, -33, -21, -11, 11, 21, 33, 45]) {
       const c = new THREE.Mesh(column, stone);
       c.position.set(x, PULPIT.y + 13, -34);
-      this.group.add(c);
+      this.stage.add(c);
     }
     box(104, 6, 12, 0, PULPIT.y + 29, -34);
     box(96, 32, 3, 0, PULPIT.y + 16, -41);
@@ -62,19 +69,19 @@ export class Preacher {
       flame.position.set(x, PULPIT.y + 6, PULPIT.z + 1);
       flame.scale.setScalar(7);
       this.flames.push(flame);
-      this.group.add(bowl, flame);
+      this.stage.add(bowl, flame);
     }
     const dome = new THREE.Mesh(new THREE.SphereGeometry(28, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), stone);
     dome.position.set(0, PULPIT.y + 32, -58);
-    this.group.add(dome);
+    this.stage.add(dome);
 
     // He is drawn a little larger than the crowd, so the eye finds him; the boy who leads him at his side.
-    this.preacher.scale.setScalar(5.4);
+    this.preacher.scale.setScalar(7);
     this.preacher.position.copy(PULPIT);
-    this.guide.scale.setScalar(3.3);
+    this.guide.scale.setScalar(4.3);
     this.guide.position.set(PULPIT.x + 6, PULPIT.y, PULPIT.z - 1);
     this.guide.rotation.y = -1.1;
-    this.group.add(this.preacher, this.guide);
+    this.stage.add(this.preacher, this.guide);
 
     // The throng: arcs packed round the foot of the steps, thinning toward the back, all facing him.
     const geo = figureGeometry();
@@ -100,7 +107,7 @@ export class Preacher {
           x,
           z,
           yaw: Math.atan2(PULPIT.x - x, PULPIT.z - z),
-          size: 3.6 + Math.random() * 0.8,
+          size: 4.7 + Math.random() * 1,
           phase: Math.random() * 10,
         });
         const robe = ROBES[Math.floor(Math.random() * ROBES.length)];
@@ -109,8 +116,11 @@ export class Preacher {
       }
       r += 6.4;
     }
+    markFigure(this.crowd[0]);
     for (const m of this.crowd) m.frustumCulled = false;
-    this.group.add(...this.crowd);
+    this.stage.add(...this.crowd);
+    this.stage.scale.setScalar(PREACHER_SCALE);
+    this.group.add(this.stage);
   }
 
   update(time: number): void {

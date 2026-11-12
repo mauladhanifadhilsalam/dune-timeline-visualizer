@@ -1,21 +1,67 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 type FigureParts = { robe: THREE.BufferGeometry; head: THREE.BufferGeometry; hood: THREE.BufferGeometry };
 let geo: FigureParts | null = null;
 
-/** The figure's parts, for drawing many of them as instances: robe and hood in cloth, head in skin. */
+/**
+ * The figure's parts, for drawing many of them as instances: robe and hood in cloth, head in skin.
+ * Shaped for a silhouette that reads as a person even a few dozen pixels tall: a cloak flaring to
+ * the hem, square shoulders, arms hanging at the sides, and a face showing under a cowl that falls
+ * behind the head rather than a hood that hides it.
+ */
 export function figureGeometry(): FigureParts {
-  geo ??= {
-    // A long cloak, wider at the hem.
-    robe: new THREE.CylinderGeometry(0.11, 0.22, 0.78, 10).translate(0, 0.39, 0),
-    head: new THREE.SphereGeometry(0.085, 10, 8).translate(0, 0.86, 0),
-    // Hood: a cone tipped back over the head.
-    hood: new THREE.ConeGeometry(0.12, 0.2, 10).rotateX(-0.35).translate(0, 0.92, -0.02),
+  if (geo) return geo;
+  // The cloak, turned on a lathe from its outline: hem, waist, chest, shoulders, neck.
+  const outline = [
+    [0, 0],
+    [0.21, 0],
+    [0.17, 0.22],
+    [0.13, 0.46],
+    [0.14, 0.6],
+    [0.17, 0.69],
+    [0.15, 0.74],
+    [0.07, 0.775],
+    [0, 0.78],
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const body = new THREE.LatheGeometry(outline, 12);
+  // Arms, hanging from the shoulders and a little out from the body, sleeves wider at the cuff.
+  const arm = (side: number) =>
+    new THREE.CylinderGeometry(0.034, 0.046, 0.36, 6)
+      .translate(0, -0.18, 0)
+      .rotateZ(side * 0.16)
+      .translate(side * 0.165, 0.71, 0.01);
+  const robe = mergeGeometries([body, arm(1), arm(-1)].map((g) => g.toNonIndexed()));
+  robe.computeVertexNormals();
+  geo = {
+    robe,
+    // The head, a little forward of the neck, so the face shows from in front and the side.
+    head: new THREE.SphereGeometry(0.078, 12, 9).scale(0.92, 1.05, 0.95).translate(0, 0.87, 0.012),
+    // The cowl: a shell over the crown and the back of the head, open at the face, falling to the
+    // shoulders behind.
+    hood: mergeGeometries(
+      [
+        new THREE.SphereGeometry(0.098, 12, 8, Math.PI * 0.18, Math.PI * 1.64, 0, Math.PI * 0.62).translate(0, 0.875, -0.004),
+        new THREE.CylinderGeometry(0.075, 0.12, 0.12, 10, 1, true, Math.PI * 0.3, Math.PI * 1.4).translate(0, 0.79, -0.012),
+      ].map((g) => g.toNonIndexed()),
+    ),
   };
   return geo;
 }
 
 export const SKIN = '#8a6a52';
+
+/**
+ * People are drawn far larger than life, so that a scene's main characters stand about 35 pixels
+ * tall in its event's own view on a modest desktop: enough to tell a person from a post. Scenes in
+ * the open size their figures to that; scenes with buildings (a hall, a plaza) scale the whole
+ * diorama instead, so a person still stands in proportion to the room. The browser tests hold
+ * scenes to it, finding people by `userData.figure`.
+ */
+export function markFigure<T extends THREE.Object3D>(o: T): T {
+  o.userData.figure = true;
+  return o;
+}
 
 /**
  * A robed figure in a stillsuit and cloak, about 1 unit tall before scaling, feet at y = 0, facing
@@ -28,5 +74,5 @@ export function buildFigure(cloak = '#3a2c22'): THREE.Group {
   const skin = new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.8 });
   const g = new THREE.Group();
   g.add(new THREE.Mesh(parts.robe, cloth), new THREE.Mesh(parts.head, skin), new THREE.Mesh(parts.hood, cloth));
-  return g;
+  return markFigure(g);
 }

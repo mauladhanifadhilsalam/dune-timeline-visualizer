@@ -30,12 +30,13 @@ export interface GoldenPathWindow {
   __goldenPath: {
     world: {
       isFlying(): boolean;
-      camera: unknown;
+      camera: { position: unknown; fov: number };
       renderer: { domElement: HTMLCanvasElement };
     };
     props: {
       sceneSamples(id: string): { kind: string; points: { clone(): { project(c: unknown): { x: number; y: number; z: number } } }[] }[];
       tourHold(id: string): { what: string; seconds: number } | null;
+      scenePeople(id: string): { at: { clone(): { project(c: unknown): { x: number; y: number; z: number } }; distanceTo(p: unknown): number }; height: number }[];
       [k: string]: unknown;
     };
     res: { events: { id: string; importance: number }[] };

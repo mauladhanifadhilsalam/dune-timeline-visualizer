@@ -3,6 +3,35 @@ import { step, useSceneClock, type GoldenPathWindow } from './harness';
 
 /** How much of a scene's ground must be in clear view for it to count as seen. */
 const SEEN = 0.5;
+/**
+ * How tall, in pixels, a scene's nearer people must stand to read as people: the upper quartile of
+ * those on screen, so a file or a crowd is judged by the people nearest the viewer, not by the ones
+ * receding into the distance behind them. For one person it is that person.
+ */
+const PERSON_PX = 28;
+/**
+ * Scenes whose people are seen at another scale, where this does not apply: the Fremen riding into
+ * the Battle of Arrakeen stand on worms across a battlefield, and grow with the worms or not at all.
+ */
+const PEOPLE_AT_ANOTHER_SCALE = new Set(['battle-of-arrakeen']);
+
+/** How tall the people of an event's scenes stand on screen: the upper quartile of those in view, in pixels. */
+function peopleHeight(page: Page, id: string): Promise<{ n: number; near: number } | null> {
+  return page.evaluate((id) => {
+    const { world, props } = (window as unknown as GoldenPathWindow).__goldenPath;
+    const cam = world.camera;
+    const focal = world.renderer.domElement.clientHeight / 2 / Math.tan((cam.fov * Math.PI) / 360);
+    const px = props
+      .scenePeople(id)
+      .filter(({ at }) => {
+        const v = at.clone().project(cam);
+        return v.z < 1 && Math.abs(v.x) < 1 && Math.abs(v.y) < 1;
+      })
+      .map(({ at, height }) => (height * focal) / at.distanceTo(cam.position))
+      .sort((a, b) => a - b);
+    return px.length ? { n: px.length, near: px[Math.floor(px.length * 0.75)] } : null;
+  }, id);
+}
 
 interface Seen {
   kind: string;
@@ -83,7 +112,13 @@ test('every scene stands where its event opens, clear of the card and the labels
       report.push(line);
       if (s.seen / s.n < SEEN) failures.push(line);
     }
+    const people = await peopleHeight(page, id);
+    if (people) {
+      const line = `${id} / people: ${people.n} in view, the nearer ${people.near.toFixed(0)} px tall`;
+      report.push(line);
+      if (people.near < PERSON_PX && !PEOPLE_AT_ANOTHER_SCALE.has(id)) failures.push(line);
+    }
   }
   console.log(report.join('\n'));
-  expect(failures, 'scenes hidden behind the card, a label or the edge of the frame').toEqual([]);
+  expect(failures, 'scenes hidden behind the card, a label or the edge of the frame, or people too small to read').toEqual([]);
 });
