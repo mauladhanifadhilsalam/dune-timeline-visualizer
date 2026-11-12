@@ -40,20 +40,30 @@ npm run e2e       # browser tests against the build (see Tests below)
 - **The world.** Set pieces stand beside the events they belong to:
   - a Guild heighliner at the Guild's founding
   - Arrakeen and the Shield Wall, with ornithopters overhead and a landing field on the city's near edge.
-    When House Atreides takes Arrakis, its frigates come down onto that field one after another, and the
-    Atreides banners go up the poles once the first is down. When the house falls, fires burn through the city
-    under smoke, and the Harkonnen and Sardaukar frigates come down on the same field. Both landings start once
-    the camera has come to rest, and the guided tour stays until the last frigate is down (about 17 seconds)
+    The night Yueh betrays the Duke, the house shield over the Residency flickers and goes out; at the next
+    event fires burn through the city under smoke, and the Harkonnen and Sardaukar frigates come down on its
+    field
+  - House Atreides arriving: its frigates coming down one after another onto a landing field, and the
+    Atreides banners going up the poles once the first is down
+  - the Duke's inspection flight: a worm comes for a spice harvester whose carryall never arrives, his
+    ornithopters land beside it, the crew run to them, and they lift off before the worm takes the machine
+  - the dinner at the Residency: the great hall drawn as a cut-away, roof off, the long table under floating
+    glowglobes, the guests down both sides, the Duke at its head and Jessica at its foot
+  - Paul and Jessica crossing open sand to the rocks, drum sand booming under them, the thumper from their
+    Fremkit drumming behind to draw the worm, which takes it just after they reach the rock; at the next
+    event Stilgar's troop waits on and below that rock
   - a Harkonnen spice harvester and its carryall, on a spice field, in the eighty years of their fief
+
+  Scenes that play from the viewer's arrival (both landings, the rescue, the shield, the crossing, the battle)
+  start once the camera has come to rest, and the guided tour stays until each has played out, counted in
+  the scene's own time so a slow device still sees it through.
   - a Coriolis storm on the horizon when Paul wakes in the stilltent, an ornithopter flying into it
   - a thumper drumming for Paul's first maker, with the worm it called circling, a rider on its back
   - the Battle of Arrakeen, played through once the camera has come to rest on it (until then the wall stands
     whole, even while it is in view from the raid on Sietch Tabr): the family atomics flash against the Shield
     Wall, that stretch of it slumps into rubble and boulders, the storm pours through the gap, and Fremen
     ride in behind it on five worms, a file of riders on each, to fall on the Emperor's landed frigates,
-    where lasgun fire flickers. Then it sinks back into the sand and replays. The guided tour stays until the
-    charge has struck the camp (about 23 seconds), counted in the scene's own time so a slow device still sees
-    it through
+    where lasgun fire flickers. Then it sinks back into the sand and replays
   - sandworms, with wormsign: a mound of sand riding over the head while it runs just under the surface
   - a crysknife
   - the spice blow that takes Liet-Kynes
@@ -92,8 +102,8 @@ npm run e2e       # browser tests against the build (see Tests below)
 
   Each one only appears in the eras the books put it in. It rises from the sand as you arrive and sinks as you
   leave, so a snaking path never shows one era's props on another's horizon. Scenes (the storm, the thumper,
-  the breach, the landing, Paul's walk, the Preacher) are tighter still: they only show near their own event, which lets the crowded
-  stretch of *Dune* fit them all. The ground changes with the story:
+  the breach, the landings, the dinner, Paul's walk, the Preacher) are tighter still: they only show near their
+  own event, which lets the crowded stretch of *Dune* fit them all. The ground changes with the story:
   - it greens under Leto II, starting faintly in *Children of Dune*
   - it has no worms during his reign, when he is the last of them
   - it is scorched glass after the Honored Matres burn Rakis
@@ -124,8 +134,9 @@ npm run e2e       # browser tests against the build (see Tests below)
 **Story scale / true scale.** A linear time axis spends about 60% of its length on the ten nearly-empty
 millennia of the Corrino Imperium and squeezes the narratives of all six novels into about 0.1%. Story scale
 blends event rank with era so dense periods open up while order is kept and long gaps still look long. The
-crowded eras get more still: each step between events counts double in *Dune* and one and a half times in
-*Messiah*/*Children of Dune* and Leto II's reign, where the scenery is thickest. Flip to true scale to see
+crowded eras get more still: each step between events counts three and a half times in *Dune*, which takes
+about a third of the path, and one and a half times in *Messiah*/*Children of Dune* and Leto II's reign,
+where the scenery is thickest. Flip to true scale to see
 how little of Herbert's history his novels actually show.
 
 **Reign from 10193 / 10196.** On the page, Shaddam IV is deposed at the Battle of Arrakeen (10193).

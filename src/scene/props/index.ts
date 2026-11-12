@@ -23,6 +23,10 @@ import { Fires } from './fire';
 import { RakisBurning } from './rakis';
 import { SandtroutRun } from './runner';
 import { WeddingProcession } from './wedding';
+import { HarvesterRescue, RESCUE_SEEN } from './rescue';
+import { Banquet } from './banquet';
+import { SHIELD_SEEN, ShieldDome } from './shield';
+import { CROSSING_SEEN, FremenBand, OpenSandCrossing } from './crossing';
 import { Sietch } from './sietch';
 import { Harvester } from './harvester';
 import { Heighliner, buildImperialCamp } from './heighliner';
@@ -161,6 +165,14 @@ export class WorldProps {
   });
   private readonly preacher = new Preacher();
   private readonly falls = new ArrakeenFalls();
+  private readonly rescue = new HarvesterRescue();
+  private rescuePiece: Piece | null = null;
+  private readonly banquet = new Banquet();
+  private readonly shield = new ShieldDome();
+  private shieldPiece: Piece | null = null;
+  private readonly crossing = new OpenSandCrossing();
+  private crossingPiece: Piece | null = null;
+  private readonly band = new FremenBand();
   private fallsPiece: Piece | null = null;
   private arrivalPiece: Piece | null = null;
   /** The raid on Sietch Tabr: fire in its mouth and on the sand before it. */
@@ -319,6 +331,30 @@ export class WorldProps {
           break;
         case 'preacher':
           piece.object = this.preacher.group;
+          break;
+        case 'harvester-rescue':
+          piece.object = this.rescue.group;
+          piece.fit = (c, q) => this.rescue.fit(c, q);
+          piece.holdFor = RESCUE_SEEN;
+          this.rescuePiece = piece;
+          break;
+        case 'banquet':
+          piece.object = this.banquet.group;
+          break;
+        case 'shield-dome':
+          piece.object = this.shield.group;
+          piece.holdFor = SHIELD_SEEN;
+          this.shieldPiece = piece;
+          break;
+        case 'desert-crossing':
+          piece.object = this.crossing.group;
+          piece.fit = (c, q) => this.crossing.fit(c, q);
+          piece.holdFor = CROSSING_SEEN;
+          this.crossingPiece = piece;
+          break;
+        case 'fremen-band':
+          piece.object = this.band.group;
+          piece.fit = (c, q) => this.band.fit(c, q);
           break;
         case 'arrakeen-falls':
           piece.object = this.falls.group;
@@ -574,7 +610,8 @@ export class WorldProps {
     const rocks: Outcrop[] = [];
     const taken: Circle[] = [...this.footprints];
     const P = this.pathXZ;
-    const STEPS = 140;
+    // One stretch of rock about every 24 units of path.
+    const STEPS = Math.round(this.path.length / 24);
     for (let i = 0; i < STEPS; i++) {
       const { pos, along, away } = this.axes((i + rand()) / STEPS);
       // The camera's side is the emptier half of the map, so it gets two tries to the far side's one.
@@ -818,6 +855,11 @@ export class WorldProps {
     this.arrival.update(time, dt, this.dust, this.exhaust, this.arrivedAt(this.arrivalPiece, focusT, settled));
     this.preacher.update(time);
     this.falls.update(time, dt, this.smoke, this.spice, this.dust, this.exhaust, this.arrivedAt(this.fallsPiece, focusT, settled));
+    this.rescue.update(time, dt, this.dust, this.arrivedAt(this.rescuePiece, focusT, settled));
+    this.banquet.update(time);
+    this.shield.update(time, dt, this.arrivedAt(this.shieldPiece, focusT, settled));
+    this.crossing.update(time, dt, this.dust, this.arrivedAt(this.crossingPiece, focusT, settled));
+    this.band.update(time);
     this.raid.update(time, dt, this.smoke, this.spice);
     // The band of Fremen is not coming home while the sietch burns.
     this.sietch.band.group.visible = !this.raidPiece || this.amount(this.raidPiece) < 0.5;

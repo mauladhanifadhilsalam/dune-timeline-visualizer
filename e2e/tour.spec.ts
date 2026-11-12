@@ -34,11 +34,11 @@ test('the guided tour stays at a landing until it has played out, and says why',
 
   // Still there well past an ordinary stop's six and a half seconds…
   await expect(title).toHaveText(landing);
-  // …and on once the landing is done, to the other landing, the Harkonnens' at the fall of
-  // Arrakeen, which holds the tour too.
+  // …and on once the landing is done, to the Duke's rescue of a harvester crew, which holds the
+  // tour too, until the worm has the machine.
   await step(page, held[0]);
-  await expect(title).toContainText('fall of House Atreides');
-  await expect(hint).toContainText('until the Harkonnen frigates are down');
+  await expect(title).toHaveText('The Duke saves a harvester crew');
+  await expect(hint).toContainText('until the worm has taken the harvester');
   // Stopping the tour takes the hint away.
   await page.keyboard.press(' ');
   await step(page, 1);

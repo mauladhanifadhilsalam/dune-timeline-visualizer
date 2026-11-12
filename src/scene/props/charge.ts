@@ -41,11 +41,16 @@ export class WormCharge {
   private readonly tmp = new THREE.Vector3();
   private readonly dir = new THREE.Vector3();
 
+  /** Riders standing on each worm's back; a wild worm has none. */
+  private readonly riderCount: number;
+
   constructor(
     worms: number,
     /** Sand height at a local point. */
     private readonly groundAt: (x: number, z: number) => number,
+    { riders = RIDERS }: { riders?: number } = {},
   ) {
+    this.riderCount = Math.min(riders, RIDERS);
     const { segment, material } = wormBodyAssets();
     this.body = new THREE.InstancedMesh(segment, material, worms * SEGMENTS);
     this.body.frustumCulled = false;
@@ -63,11 +68,14 @@ export class WormCharge {
     const cloth = new THREE.MeshStandardMaterial({ color: '#2e241c', roughness: 0.95 });
     const skin = new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.8 });
     this.riders = [
-      new THREE.InstancedMesh(parts.robe, cloth, worms * RIDERS),
-      new THREE.InstancedMesh(parts.head, skin, worms * RIDERS),
-      new THREE.InstancedMesh(parts.hood, cloth, worms * RIDERS),
+      new THREE.InstancedMesh(parts.robe, cloth, Math.max(worms * this.riderCount, 1)),
+      new THREE.InstancedMesh(parts.head, skin, Math.max(worms * this.riderCount, 1)),
+      new THREE.InstancedMesh(parts.hood, cloth, Math.max(worms * this.riderCount, 1)),
     ];
-    for (const r of this.riders) r.frustumCulled = false;
+    for (const r of this.riders) {
+      r.frustumCulled = false;
+      r.count = worms * this.riderCount;
+    }
     this.group.add(this.body, ...this.riders);
   }
 
@@ -142,7 +150,7 @@ export class WormCharge {
       head.scale.setScalar(R0 * 1.02);
 
       // The riders, standing tall on its back, facing the way it goes.
-      for (let k = 0; k < RIDERS; k++) {
+      for (let k = 0; k < this.riderCount; k++) {
         const i = RIDER_SEGMENTS[k];
         const a = this.pts[i];
         const bp = this.pts[i + 1];
@@ -152,7 +160,7 @@ export class WormCharge {
         this.dummy.rotation.set(0, Math.atan2(a.x - bp.x, a.z - bp.z), 0);
         this.dummy.scale.setScalar(3.8);
         this.dummy.updateMatrix();
-        for (const m of this.riders) m.setMatrixAt(w * RIDERS + k, this.dummy.matrix);
+        for (const m of this.riders) m.setMatrixAt(w * this.riderCount + k, this.dummy.matrix);
       }
 
       if (s >= run.strike) {

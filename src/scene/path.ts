@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Half-length of the path along world X. */
-export const PATH_HALF_X = 1350;
+export const PATH_HALF_X = 2000;
 /** Height the path floats at above the valley floor. */
 export const PATH_Y = 16;
 

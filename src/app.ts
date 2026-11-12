@@ -7,7 +7,7 @@ import { SkyLight } from './scene/skies';
 import { ArrakisMap } from './scene/map/arrakis-map';
 import { PLACES } from './data/arrakis';
 import { WorldProps } from './scene/props';
-import { GoldenPath, createPathMesh, makeFrame, type PathFrame } from './scene/path';
+import { GoldenPath, PATH_HALF_X, createPathMesh, makeFrame, type PathFrame } from './scene/path';
 import { TimelineLayer, type Layers } from './scene/timeline';
 import { World } from './scene/world';
 import { CATEGORY_GLYPH, CATEGORY_LABEL, CERTAINTY_LABEL, MODE_LABEL, NOVEL_COLOR, formatYear } from './timeline/format';
@@ -357,9 +357,11 @@ export function createApp(): void {
 
   function overviewPose(): { eye: THREE.Vector3; target: THREE.Vector3 } {
     const portrait = world.width / world.height < 1;
+    // Framed for a path 2700 long; a longer one is seen from proportionally further off.
+    const k = PATH_HALF_X / 1350;
     return portrait
-      ? { eye: new THREE.Vector3(-2150, 1550, 300), target: new THREE.Vector3(80, 0, 0) }
-      : { eye: new THREE.Vector3(0, 1250, 1600), target: new THREE.Vector3(0, 0, 40) };
+      ? { eye: new THREE.Vector3(-2150, 1550, 300).multiplyScalar(k), target: new THREE.Vector3(80, 0, 0).multiplyScalar(k) }
+      : { eye: new THREE.Vector3(0, 1250, 1600).multiplyScalar(k), target: new THREE.Vector3(0, 0, 40).multiplyScalar(k) };
   }
 
   function overview(): void {

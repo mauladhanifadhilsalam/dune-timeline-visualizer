@@ -333,7 +333,8 @@ function buildTrees(path: GoldenPath): THREE.InstancedMesh {
     return g;
   };
   const geo = mergeGeometries([paint(trunk, '#5a3d27'), paint(crown, '#4b6e33'), paint(top, '#62873f')]);
-  const N = 2200;
+  // As dense as on a path 2700 long, however long it is.
+  const N = Math.round((2200 * PATH_HALF_X) / 1350);
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
   const mesh = new THREE.InstancedMesh(geo, mat, N);
   const aT = new Float32Array(N);

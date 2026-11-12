@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { FOG_COLOR, duneHeight } from './desert';
 import { FOV } from './framing';
+import { PATH_HALF_X } from './path';
 
 const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -83,7 +84,8 @@ export class World {
     this.controls.dampingFactor = 0.08;
     this.controls.screenSpacePanning = false;
     this.controls.minDistance = 10;
-    this.controls.maxDistance = 3200;
+    // Far enough back to take in the whole path, whatever its length.
+    this.controls.maxDistance = 3200 * (PATH_HALF_X / 1350);
     this.controls.maxPolarAngle = Math.PI * 0.47;
     this.controls.zoomSpeed = 0.9;
     this.controls.zoomToCursor = true;
@@ -248,8 +250,9 @@ export class World {
     if (this.camera.position.y < ground) this.camera.position.y = ground;
 
     // Thin the haze as the camera climbs, so the overview can see the whole path.
-    const k = THREE.MathUtils.smoothstep(this.camera.position.y, 40, 900);
-    this.fog.density = THREE.MathUtils.lerp(0.0021, 0.0003, k);
+    const reach = PATH_HALF_X / 1350;
+    const k = THREE.MathUtils.smoothstep(this.camera.position.y, 40, 900 * reach);
+    this.fog.density = THREE.MathUtils.lerp(0.0021, 0.0003 / reach, k);
 
     if (this.viewOffset.distanceTo(this.viewOffsetTarget) > 0.5) {
       this.viewOffset.lerp(this.viewOffsetTarget, Math.min(dt * 6, 1));

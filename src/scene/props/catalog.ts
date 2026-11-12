@@ -1,4 +1,4 @@
-import { ARRAKEEN_FIELD } from './arrakeen';
+import { CROSSING_ROCK } from './crossing';
 import { RIVER_FOOTPRINT } from './river';
 import { SIETCH_MOUTH } from './sietch';
 import type { WormOptions } from './sandworm';
@@ -38,7 +38,12 @@ export type PieceKind =
   | 'sietch-raid'
   | 'sandtrout-run'
   | 'wedding'
-  | 'rakis-burning';
+  | 'rakis-burning'
+  | 'harvester-rescue'
+  | 'banquet'
+  | 'shield-dome'
+  | 'desert-crossing'
+  | 'fremen-band';
 
 export interface SetPiece {
   kind: PieceKind;
@@ -109,7 +114,9 @@ export interface SetPiece {
 export const SET_PIECES: SetPiece[] = [
   {
     kind: 'arrakeen',
-    event: 'atreides-arrive',
+    // Pinned to the middle of what happens in it: the Residency's shield failing and the attack
+    // after it both stand inside it, a step either side along the path.
+    event: 'shields-down',
     eras: ['muaddib', 'atreides-empire'],
     lateral: 210,
     footprint: [
@@ -147,6 +154,48 @@ export const SET_PIECES: SetPiece[] = [
     padRadius: 66,
     label: { title: "Leto II's Citadel", sub: 'the Sareer · his journals later dug up at Dar-es-Balat', height: 95 },
     note: "Leto II's Citadel in the Sareer, the walled desert he kept on a green Arrakis. The journals the novel is built around are excavated at Dar-es-Balat on Rakis some 1,500 years later.",
+  },
+  {
+    kind: 'harvester-rescue',
+    event: 'harvester-rescue',
+    eras: ['muaddib'],
+    moment: 0,
+    hold: 'until the worm has taken the harvester',
+    lateral: 200,
+    footprint: [
+      { x: 0, z: 0, r: 60 },
+      { x: 0, z: 48, r: 44 },
+      { x: -40, z: -200, r: 60 },
+    ],
+    pad: { tint: '#b3431a', amount: 0.5 },
+    padRadius: 100,
+    note: "Duke Leto's inspection flight: a worm comes for a spice harvester, the carryall that should lift it never arrives, and the Duke brings his ornithopters down to take off the crew, letting the machine and its spice go.",
+  },
+  {
+    kind: 'banquet',
+    event: 'residency-dinner',
+    eras: ['muaddib'],
+    moment: 0,
+    lateral: 110,
+    footprint: [{ x: 0, z: 0, r: 45 }],
+    pad: { tint: '#8d7a66', amount: 0.6 },
+    padRadius: 48,
+    note: "The dinner at the Residency: the great hall cut away to show the long table under glowglobes, the guests down both sides, the Duke at its head and Jessica at its foot, and the date palms in their tubs.",
+  },
+  {
+    kind: 'desert-crossing',
+    event: 'desert-crossing',
+    eras: ['muaddib'],
+    // Also round Stilgar's coming, whose troop waits on its rock.
+    moment: 1,
+    hold: 'until they reach the rock',
+    lateral: 140,
+    footprint: [
+      { x: CROSSING_ROCK.x, z: CROSSING_ROCK.z, r: CROSSING_ROCK.r + 8 },
+      { x: -20, z: 6, r: 56 },
+      { x: -100, z: -170, r: 50 },
+    ],
+    note: 'Paul and Jessica crossing open sand to the rocks, a thumper from their Fremkit drumming behind them to draw the worms away, drum sand booming under them, and the worm that comes and takes the thumper.',
   },
   {
     kind: 'jihad-fleet',
@@ -423,17 +472,18 @@ export const SET_PIECES: SetPiece[] = [
     eras: ['muaddib'],
     moment: 1,
     hold: 'until the Atreides frigates are down and their banners up',
-    // On Arrakeen's own landing field.
-    site: { in: 'arrakeen', x: ARRAKEEN_FIELD.x, z: ARRAKEEN_FIELD.z },
-    lateral: 0,
-    footprint: [{ x: 0, z: 0, r: ARRAKEEN_FIELD.r }],
+    lateral: 150,
+    footprint: [{ x: 0, z: 0, r: 64 }],
+    pad: { tint: '#5d544b', amount: 0.85 },
+    padRadius: 68,
     note: "House Atreides comes down to Arrakeen to take the fief from the Harkonnens: its frigates landing one after another on the city's field, and the Atreides banners run up the poles once the first is down.",
   },
   {
     kind: 'arrakeen-falls',
     event: 'fall-of-arrakeen',
     eras: ['muaddib'],
-    moment: 1,
+    // Its own event only: the city must not already be burning while the shield is still up.
+    moment: 0,
     hold: "until the Harkonnen frigates are down on the city's field",
     // In the city itself.
     site: { in: 'arrakeen', x: 0, z: 0 },
@@ -452,6 +502,27 @@ export const SET_PIECES: SetPiece[] = [
     lateral: 0,
     footprint: [{ x: 0, z: 0, r: 30 }],
     note: "The Sardaukar raid on Sietch Tabr while its fighters are away: smoke pouring from the cave-mouth, and Paul's first son among the dead.",
+  },
+  {
+    kind: 'shield-dome',
+    event: 'shields-down',
+    eras: ['muaddib'],
+    moment: 0,
+    hold: 'until the shield over the Residency is down',
+    site: { in: 'arrakeen', x: 0, z: 0 },
+    lateral: 0,
+    footprint: [{ x: 0, z: 0, r: 48 }],
+    note: "The house shield over the Residency, flickering out as Yueh brings it down.",
+  },
+  {
+    kind: 'fremen-band',
+    event: 'stilgar-finds-them',
+    eras: ['muaddib'],
+    moment: 0,
+    site: { in: 'desert-crossing', x: CROSSING_ROCK.x, z: CROSSING_ROCK.z },
+    lateral: 0,
+    footprint: [{ x: 0, z: 0, r: 40 }],
+    note: "Stilgar's troop, on and below the rock where Paul and Jessica come in off the sand.",
   },
   {
     kind: 'sandtrout-run',

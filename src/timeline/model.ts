@@ -73,7 +73,7 @@ export interface Resolved {
  * years and carry most of the scenery, so they are given the most path; Leto II's reign has few
  * events but the two largest pieces, the Sareer and the Idaho River.
  */
-const ROOM: Record<string, number> = { muaddib: 2, 'atreides-empire': 1.5, 'god-emperor': 1.5 };
+const ROOM: Record<string, number> = { muaddib: 3.5, 'atreides-empire': 1.5, 'god-emperor': 1.5 };
 
 export function resolve(input: TimelineInput, reckoning: Reckoning): Resolved {
   const d = shiftFor(reckoning);
