@@ -1,40 +1,36 @@
 import * as THREE from 'three';
 import { Procession } from './procession';
-import { wormBodyAssets } from './sandworm';
+import { LETO_BODY, LETO_FLATTEN, LETO_LENGTH, LETO_WIDTH, buildLetoBody } from './leto';
 
 const cartMat = new THREE.MeshStandardMaterial({ color: '#8a7448', metalness: 0.55, roughness: 0.4 });
 const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a').multiplyScalar(1.6) });
 
 /**
  * Leto II's Royal Cart: an Ixian cart borne on suspensors a little above the road, carrying the God
- * Emperor's pre-worm body, a long ringed mass with the human face at its front.
+ * Emperor's pre-worm body, a long ringed mass with the human face at its front (+Z, the way it
+ * goes). Built round his body, at its size, so the cart fits whatever size he is drawn.
  */
 function buildRoyalCart(): THREE.Group {
-  const outer = new THREE.Group();
-  // Larger than life, like everything here, so it reads at the head of the file.
   const g = new THREE.Group();
-  g.scale.setScalar(2.2);
-  outer.add(g);
-  const bed = new THREE.Mesh(new THREE.BoxGeometry(9, 1.6, 24), cartMat);
-  bed.position.y = 2.6;
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.4, 24.4), trimMat);
-  rail.position.y = 3.5;
+  const width = LETO_WIDTH + 4;
+  const length = LETO_LENGTH + 6;
+  const bedTop = 7.5;
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(width, 3.5, length), cartMat);
+  bed.position.y = bedTop - 1.75;
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.8, length + 0.8), trimMat);
+  rail.position.y = bedTop;
   g.add(bed, rail);
-  // His body: ring segments lying along the bed, thickest in the middle, raised at the front.
-  const { segment, material } = wormBodyAssets();
-  const body = new THREE.InstancedMesh(segment, material, 7);
+  // His body lying along the bed, the face raised a little at the front.
+  const body = buildLetoBody();
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
-  const c = new THREE.Color();
-  for (let i = 0; i < 7; i++) {
-    const r = 3.3 * Math.sin(((i + 0.8) / 7.6) * Math.PI);
-    const z = 8 - i * 3.1;
-    m.compose(new THREE.Vector3(0, 4.2 + r * 0.8 + (i === 0 ? 1.5 : 0), z), q, new THREE.Vector3(r, r * 0.85, 3.4));
+  LETO_BODY.forEach(({ along, r, len }, i) => {
+    const z = LETO_LENGTH / 2 - len / 2 - along;
+    m.compose(new THREE.Vector3(0, bedTop + r * LETO_FLATTEN * 0.8 + (i === 0 ? 2 : 0), z), q, new THREE.Vector3(r, r * LETO_FLATTEN, len));
     body.setMatrixAt(i, m);
-    body.setColorAt(i, c.set('#9c8a74').offsetHSL(0, 0, i % 2 ? -0.04 : 0.02));
-  }
+  });
   g.add(body);
-  return outer;
+  return g;
 }
 
 /**
@@ -61,7 +57,7 @@ export class WeddingProcession {
         [1, 0],
       ],
       duration: 50,
-      leader: { object: buildRoyalCart(), ahead: 44 },
+      leader: { object: buildRoyalCart(), ahead: LETO_LENGTH / 2 + 18 },
       heightAt: road.heightAt,
     });
     this.group.add(this.file.group);

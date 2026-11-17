@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RIVER_POINTS, duneHeight, riverGround, type RiverCourse } from '../desert';
-import { wormBodyAssets } from './sandworm';
+import { LETO_BODY, LETO_FLATTEN, buildLetoBody } from './leto';
 
 /**
  * The course in the piece's local frame (x along the path, -z away from it): a U opening away from
@@ -21,9 +21,11 @@ const COURSE: [number, number][] = [
 ];
 /**
  * Where the bridge crosses: on the left arm, well to the side of the event's light and label, which
- * stand in the middle of the view; and on the left, because the event's card covers the right.
+ * stand in the middle of the view; and on the left, because the event's card covers the right. Far
+ * enough up the arm that Leto II's body, carried down toward the bend from it, lies in open water
+ * left of his death's light and name rather than behind them.
  */
-const BRIDGE: [number, number] = [-110, 68];
+const BRIDGE: [number, number] = [-172, 37];
 const HALF_WIDTH = 21;
 const BANK = 34;
 /** The bridge: deck height above the water, and how far out its abutments stand from its middle. */
@@ -195,12 +197,8 @@ export class IdahoRiver {
     this.bridge.add(this.whole, this.cut);
     this.group.add(this.bridge);
 
-    // Leto II's body in the water below the bridge: a worm's rings, half under, thinning to the tail.
-    const { segment, material } = wormBodyAssets();
-    this.body = new THREE.InstancedMesh(segment, material, 12);
-    const c = new THREE.Color();
-    // Pale against the dark water, so it reads from the path.
-    for (let i = 0; i < 12; i++) this.body.setColorAt(i, c.set('#c2ae92').offsetHSL(0, 0, i % 2 ? -0.05 : 0.02));
+    // Leto II's body in the water below the bridge, the same body that rode the Royal Cart over it.
+    this.body = buildLetoBody();
     this.group.add(this.body);
 
     // Sandtrout leaving the body.
@@ -348,18 +346,16 @@ export class IdahoRiver {
     // which with θ = atan2(fx, fz) is (fz, -fx), perpendicular to the flow (fx, fz).
     this.bridge.rotation.y = Math.atan2(this.flow.x, this.flow.z);
 
-    // His body from just below the bridge, downstream: drawn larger than life like everything here,
-    // and riding high in the current, so it reads from the path.
-    for (let i = 0; i < 12; i++) {
-      const r = 7.5 - i * 0.32;
-      const along = 10 + i * 6.4;
-      const a = this.v.copy(this.bridgeAt).addScaledVector(this.flow, along);
+    // His body from just below the bridge, face first, carried downstream: riding high in the
+    // current so it reads from the path, the tail sinking and swung a little by the water.
+    this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.flow);
+    LETO_BODY.forEach(({ along, r, len }, i) => {
+      const a = this.v.copy(this.bridgeAt).addScaledVector(this.flow, 10 + along);
       a.x += Math.sin(i * 0.5) * 3.5;
-      a.y = this.levelLocal - r * 0.05 - i * 0.15;
-      this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.flow);
-      this.m.compose(a, this.q, new THREE.Vector3(r, r * 0.9, 7));
+      a.y = this.levelLocal - r * 0.05 - i * 0.2;
+      this.m.compose(a, this.q, new THREE.Vector3(r, r * LETO_FLATTEN, len));
       this.body.setMatrixAt(i, this.m);
-    }
+    });
     this.body.instanceMatrix.needsUpdate = true;
   }
 

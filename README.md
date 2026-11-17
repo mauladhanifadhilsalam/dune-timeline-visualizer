@@ -80,7 +80,8 @@ npm run e2e       # browser tests against the build (see Tests below)
   - the Idaho River, winding across a green flood plain (levelled, so no dune hides it from the path), with
     the Royal Road crossing it on a stone bridge. At Hwi Noree's event the wedding procession walks the road,
     his Royal Cart at its head and the Fish Speakers behind, up the ramp and over the bridge. From his death
-    the bridge is cut, his pale body lies in the current below it and the sandtrout spread from it
+    the bridge is cut, his body lies in the current below it and the sandtrout spread from it. It is the same
+    body in both, one definition at one size, so he is as large falling as riding
   - ships of the Scattering lifting off after his death
   - on Rakis in *Heretics*, pilgrims walking to Keen under a Priesthood ornithopter, and then Keen in ruins and
     burning as the Honored Matres destroy the planet, their attack ships passing over; on Chapterhouse, the
