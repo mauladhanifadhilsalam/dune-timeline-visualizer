@@ -30,6 +30,8 @@ const HALF_WIDTH = 21;
 const BANK = 34;
 /** The bridge: deck height above the water, and how far out its abutments stand from its middle. */
 const DECK_Y = 14;
+/** The bridge deck's width, between its parapets' outer faces: whatever crosses it must fit. */
+export const DECK_WIDTH = 10;
 const ABUTMENT = 47;
 /** The Royal Road: half its width, its run either side of the bridge, and its ramps up to the deck. */
 const ROAD_HALF = 6;
@@ -186,14 +188,14 @@ export class IdahoRiver {
     for (const s of [-1, 1]) {
       box(this.bridge, 6, deckY + 8, 9, s * 19, deckY / 2 - 4, 0); // pier in the water
       box(this.bridge, 9, deckY + 10, 12, s * ABUTMENT, deckY / 2 - 5, 0); // abutment on the bank
-      box(this.cut, 38, 3, 10, s * 28, deckY, 0); // deck
+      box(this.cut, 38, 3, DECK_WIDTH, s * 28, deckY, 0); // deck
       box(this.cut, 38, 2.2, 0.8, s * 28, deckY + 2.6, 4.6); // parapets
       box(this.cut, 38, 2.2, 0.8, s * 28, deckY + 2.6, -4.6);
       box(this.cut, 4, 3.4, 9, s * 10, deckY - 0.4, 0, s * 0.35); // broken, sagging end
       box(this.whole, 94, 2.2, 0.8, 0, deckY + 2.6, s * 4.6); // parapets
     }
-    box(this.whole, 94, 3, 10, 0, deckY, 0); // deck
-    box(this.cut, 17, 2.6, 10, 2, 0.2, 6, 0.42); // the cut span, fallen
+    box(this.whole, 94, 3, DECK_WIDTH, 0, deckY, 0); // deck
+    box(this.cut, 17, 2.6, DECK_WIDTH, 2, 0.2, 6, 0.42); // the cut span, fallen
     this.bridge.add(this.whole, this.cut);
     this.group.add(this.bridge);
 
@@ -212,7 +214,8 @@ export class IdahoRiver {
         angle: Math.random() * Math.PI * 2,
         reach: 10 + Math.random() * 30,
         offset: Math.random() * SPREAD,
-        size: 0.7 + Math.random() * 0.8,
+        // Small beside his body, but not so small that the swarm leaving it vanishes from the path.
+        size: 0.42 + Math.random() * 0.48,
       });
     }
     this.trout.frustumCulled = false;
@@ -351,8 +354,9 @@ export class IdahoRiver {
     this.q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), this.flow);
     LETO_BODY.forEach(({ along, r, len }, i) => {
       const a = this.v.copy(this.bridgeAt).addScaledVector(this.flow, 10 + along);
-      a.x += Math.sin(i * 0.5) * 3.5;
-      a.y = this.levelLocal - r * 0.05 - i * 0.2;
+      // Swung by the water in proportion to his girth, and sinking toward the tail.
+      a.x += Math.sin(i * 0.5) * r * 0.45;
+      a.y = this.levelLocal - r * 0.05 - i * r * 0.03;
       this.m.compose(a, this.q, new THREE.Vector3(r, r * LETO_FLATTEN, len));
       this.body.setMatrixAt(i, this.m);
     });

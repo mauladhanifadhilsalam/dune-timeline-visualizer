@@ -28,7 +28,7 @@ const THUMPER = new THREE.Vector2(-62, -42);
 /** A patch of drum sand on their way, which booms under a footstep. */
 const DRUM = { x: -14, z: 18, r: 13 };
 /** People are drawn far larger than life, or they vanish in the dunes. */
-const FIGURE = 9.5;
+const FIGURE = 5.5;
 
 /** Shared by the scene and the troop that waits on its rock: sand height at a local point. */
 class LocalGround {

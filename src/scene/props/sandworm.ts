@@ -158,8 +158,6 @@ export class Sandworm {
         rider.add(hook);
       }
       rider.add(figure);
-      // Larger again, maker hooks and all, so the rider reads from the event, across the worm's loop.
-      rider.scale.setScalar(2.7);
       this.rider = rider;
       this.group.add(rider);
     }

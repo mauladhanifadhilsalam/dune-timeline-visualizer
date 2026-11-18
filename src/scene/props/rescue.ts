@@ -57,12 +57,12 @@ export class HarvesterRescue {
   constructor() {
     this.group.add(this.harvester.group);
     for (const t of this.thopters) {
-      t.group.scale.setScalar(3.4);
+      t.group.scale.setScalar(2.8);
       this.group.add(t.group);
     }
     for (let i = 0; i < CREW; i++) {
       const figure = buildFigure(i % 2 ? '#6b5a44' : '#4a3c30');
-      figure.scale.setScalar(10);
+      figure.scale.setScalar(5);
       const [px, pz] = PADS[i % PADS.length];
       this.crew.push({
         figure,

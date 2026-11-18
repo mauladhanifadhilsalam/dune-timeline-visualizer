@@ -3,18 +3,18 @@ import { wormBodyAssets } from './sandworm';
 
 /** Rings in his body, and the length of each along it. */
 const RINGS = 8;
-const RING = 7;
+const RING = 2.9;
 /** How far apart the rings' centres are: a little less than a ring, so they overlap. */
-const SPACING = 6.4;
+const SPACING = 2.6;
 /** His girth at its fullest, as a ring's radius. */
-const GIRTH = 7.3;
+const GIRTH = 2.7;
 
 /**
  * Leto II's pre-worm body in God Emperor of Dune, as rings from the face (the first) to the tail:
  * where each lies along the body and how thick it is. One definition for every scene that shows
  * him, so he is the same size riding the Royal Cart over the bridge as falling from it into the
- * river. In world units, drawn at the scale of the people around him: about four of the Fish
- * Speakers who walk behind the cart, end to end.
+ * river. In world units, in scale with the world he crosses rather than with the screen: about four
+ * of the Fish Speakers who walk behind the cart, end to end, on a cart that fits the bridge's deck.
  */
 export const LETO_BODY: readonly { along: number; r: number; len: number }[] = Array.from({ length: RINGS }, (_, i) => {
   const k = i / (RINGS - 1);

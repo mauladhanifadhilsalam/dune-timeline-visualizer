@@ -52,18 +52,6 @@ export function figureGeometry(): FigureParts {
 export const SKIN = '#8a6a52';
 
 /**
- * People are drawn far larger than life, so that a scene's main characters stand about 35 pixels
- * tall in its event's own view on a modest desktop: enough to tell a person from a post. Scenes in
- * the open size their figures to that; scenes with buildings (a hall, a plaza) scale the whole
- * diorama instead, so a person still stands in proportion to the room. The browser tests hold
- * scenes to it, finding people by `userData.figure`.
- */
-export function markFigure<T extends THREE.Object3D>(o: T): T {
-  o.userData.figure = true;
-  return o;
-}
-
-/**
  * A robed figure in a stillsuit and cloak, about 1 unit tall before scaling, feet at y = 0, facing
  * +Z. People are specks beside a sandworm, so callers scale this up well past life size: it is
  * a marker for "someone is here", not a portrait.
@@ -74,5 +62,5 @@ export function buildFigure(cloak = '#3a2c22'): THREE.Group {
   const skin = new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.8 });
   const g = new THREE.Group();
   g.add(new THREE.Mesh(parts.robe, cloth), new THREE.Mesh(parts.head, skin), new THREE.Mesh(parts.hood, cloth));
-  return markFigure(g);
+  return g;
 }

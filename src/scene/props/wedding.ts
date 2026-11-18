@@ -3,6 +3,8 @@ import { Procession } from './procession';
 import { LETO_BODY, LETO_FLATTEN, LETO_LENGTH, LETO_WIDTH, buildLetoBody } from './leto';
 
 const cartMat = new THREE.MeshStandardMaterial({ color: '#8a7448', metalness: 0.55, roughness: 0.4 });
+/** The Royal Cart's width: his body and a margin either side, narrower than the bridge it crosses. */
+export const ROYAL_CART_WIDTH = LETO_WIDTH + 3;
 const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a').multiplyScalar(1.6) });
 
 /**
@@ -12,12 +14,11 @@ const trimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd28a').
  */
 function buildRoyalCart(): THREE.Group {
   const g = new THREE.Group();
-  const width = LETO_WIDTH + 4;
-  const length = LETO_LENGTH + 6;
-  const bedTop = 7.5;
-  const bed = new THREE.Mesh(new THREE.BoxGeometry(width, 3.5, length), cartMat);
-  bed.position.y = bedTop - 1.75;
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(width + 0.8, 0.8, length + 0.8), trimMat);
+  const length = LETO_LENGTH + 4;
+  const bedTop = 4;
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(ROYAL_CART_WIDTH, 2, length), cartMat);
+  bed.position.y = bedTop - 1;
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(ROYAL_CART_WIDTH + 0.4, 0.5, length + 0.4), trimMat);
   rail.position.y = bedTop;
   g.add(bed, rail);
   // His body lying along the bed, the face raised a little at the front.
@@ -26,7 +27,7 @@ function buildRoyalCart(): THREE.Group {
   const q = new THREE.Quaternion();
   LETO_BODY.forEach(({ along, r, len }, i) => {
     const z = LETO_LENGTH / 2 - len / 2 - along;
-    m.compose(new THREE.Vector3(0, bedTop + r * LETO_FLATTEN * 0.8 + (i === 0 ? 2 : 0), z), q, new THREE.Vector3(r, r * LETO_FLATTEN, len));
+    m.compose(new THREE.Vector3(0, bedTop + r * LETO_FLATTEN * 0.8 + (i === 0 ? 0.8 : 0), z), q, new THREE.Vector3(r, r * LETO_FLATTEN, len));
     body.setMatrixAt(i, m);
   });
   g.add(body);
@@ -49,15 +50,15 @@ export class WeddingProcession {
   ) {
     this.file = new Procession({
       count: 18,
-      spacing: 18,
-      scale: 14,
+      spacing: 8,
+      scale: 5.5,
       cloak: '#3f3a48',
       route: [
         [0, 0],
         [1, 0],
       ],
       duration: 50,
-      leader: { object: buildRoyalCart(), ahead: LETO_LENGTH / 2 + 18 },
+      leader: { object: buildRoyalCart(), ahead: LETO_LENGTH / 2 + 8 },
       heightAt: road.heightAt,
     });
     this.group.add(this.file.group);

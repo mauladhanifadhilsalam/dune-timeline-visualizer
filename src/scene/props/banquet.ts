@@ -4,17 +4,12 @@ import { buildFigure } from './figure';
 
 const stone = new THREE.MeshStandardMaterial({ color: '#b8a384', roughness: 0.9, flatShading: true });
 const FLOOR = 2;
-/** Height of the table top above the floor of the hall: a little under half a standing guest. */
-const TABLE = 2.8;
+/** Height of the table top above the floor of the hall. */
+const TABLE = 5;
 /** The hall's width along the path and its depth, and the table's length. */
 const W = 76;
 const D = 46;
 const TABLE_LEN = 52;
-/**
- * The room is drawn this much larger than its own measurements, and its people a little larger
- * again than the room, so the guests read in view without the hall outgrowing its ground.
- */
-export const BANQUET_SCALE = 1.5;
 const GUEST_ROBES = ['#6a4a3a', '#3d4f5c', '#7a6a4a', '#4a3a4a', '#5c3a2a', '#8a7a5a'];
 
 /**
@@ -26,8 +21,6 @@ const GUEST_ROBES = ['#6a4a3a', '#3d4f5c', '#7a6a4a', '#4a3a4a', '#5c3a2a', '#8a
  */
 export class Banquet {
   readonly group = new THREE.Group();
-  /** The room as drawn, before it is scaled up so the people in it read. */
-  private readonly stage = new THREE.Group();
   private readonly globes: THREE.Sprite[] = [];
   private readonly guests: { figure: THREE.Group; yaw: number; phase: number }[] = [];
   private readonly duke: THREE.Group;
@@ -36,7 +29,7 @@ export class Banquet {
     const box = (w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material = stone) => {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
       b.position.set(x, y, z);
-      this.stage.add(b);
+      this.group.add(b);
       return b;
     };
     // The hall's floor on a dais, its back wall with tall windows on the night, columns and a beam
@@ -48,7 +41,7 @@ export class Banquet {
     for (const x of [-34, -17, 0, 17, 34]) {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 27, 10), stone);
       c.position.set(x, FLOOR + 13.5, -D / 2 + 5.5);
-      this.stage.add(c);
+      this.group.add(c);
     }
     box(W, 3, 6, 0, FLOOR + 28.5, -D / 2 + 5);
     box(2, 9, D, -W / 2 + 1, FLOOR + 4.5, 0);
@@ -61,41 +54,40 @@ export class Banquet {
     // Water in glass on the table: wealth, on Arrakis.
     const glass = new THREE.MeshStandardMaterial({ color: '#7fb4d9', roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.8 });
     for (const x of [-20, -10, 0, 10, 20]) {
-      const f = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 1.8, 10), glass);
-      f.position.set(x, FLOOR + TABLE + 1.3, 0);
-      this.stage.add(f);
+      const f = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.1, 3.2, 10), glass);
+      f.position.set(x, FLOOR + TABLE + 2, 0);
+      this.group.add(f);
     }
 
     // Guests down both sides, seated (the table hides their knees), turned to the table.
     for (const side of [1, -1]) {
       [-20, -10, 0, 10, 20].forEach((x, i) => {
         const figure = buildFigure(GUEST_ROBES[(i + (side > 0 ? 0 : 3)) % GUEST_ROBES.length]);
-        figure.scale.setScalar(4.7);
-        // Sunk a little into the floor: seated, the table hides their knees.
-        figure.position.set(x, FLOOR - 1.1, side * 8.5);
+        figure.scale.setScalar(3.6);
+        figure.position.set(x, FLOOR - 0.6, side * 8.5);
         const yaw = side > 0 ? Math.PI : 0;
         figure.rotation.y = yaw;
         this.guests.push({ figure, yaw, phase: i * 1.3 + side });
-        this.stage.add(figure);
+        this.group.add(figure);
       });
     }
     // The Duke stands at the head; Jessica sits at the foot.
     this.duke = buildFigure('#1f3d2c');
-    this.duke.scale.setScalar(5.7);
+    this.duke.scale.setScalar(4.4);
     this.duke.position.set(TABLE_LEN / 2 + 5, FLOOR, 0);
     this.duke.rotation.y = -Math.PI / 2;
     const jessica = buildFigure('#2b2a3a');
-    jessica.scale.setScalar(4.9);
-    jessica.position.set(-TABLE_LEN / 2 - 5, FLOOR - 1.1, 0);
+    jessica.scale.setScalar(3.8);
+    jessica.position.set(-TABLE_LEN / 2 - 5, FLOOR - 0.4, 0);
     jessica.rotation.y = Math.PI / 2;
     // Attendants by the back wall.
     const attendants = [-16, 16].map((x) => {
       const a = buildFigure('#d8ccb2');
-      a.scale.setScalar(4.6);
+      a.scale.setScalar(3.5);
       a.position.set(x, FLOOR, -D / 2 + 9);
       return a;
     });
-    this.stage.add(this.duke, jessica, ...attendants);
+    this.group.add(this.duke, jessica, ...attendants);
 
     // Glowglobes floating over the table.
     const globeMat = new THREE.SpriteMaterial({
@@ -110,7 +102,7 @@ export class Banquet {
       g.position.set(x, FLOOR + 17, 0);
       g.scale.setScalar(4.5);
       this.globes.push(g);
-      this.stage.add(g);
+      this.group.add(g);
     }
 
     // Date palms in tubs at the corners.
@@ -136,10 +128,8 @@ export class Banquet {
         palm.add(f);
       }
       palm.position.set(x, FLOOR, z);
-      this.stage.add(palm);
+      this.group.add(palm);
     }
-    this.stage.scale.setScalar(BANQUET_SCALE);
-    this.group.add(this.stage);
   }
 
   update(time: number): void {

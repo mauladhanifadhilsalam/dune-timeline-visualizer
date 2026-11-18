@@ -1,6 +1,4 @@
-import { BANQUET_SCALE } from './banquet';
 import { CROSSING_ROCK } from './crossing';
-import { PREACHER_SCALE } from './preacher';
 import { RIVER_FOOTPRINT } from './river';
 import { SIETCH_MOUTH } from './sietch';
 import type { WormOptions } from './sandworm';
@@ -183,9 +181,9 @@ export const SET_PIECES: SetPiece[] = [
     // To the left of its event, so the Duke at the head of the table is clear of the event's label.
     along: -45,
     lateral: 110,
-    footprint: [{ x: 0, z: 0, r: 45 * BANQUET_SCALE }],
+    footprint: [{ x: 0, z: 0, r: 45 }],
     pad: { tint: '#8d7a66', amount: 0.6 },
-    padRadius: 48 * BANQUET_SCALE,
+    padRadius: 48,
     note: "The dinner at the Residency: the great hall cut away to show the long table under glowglobes, the guests down both sides, the Duke at its head and Jessica at its foot, and the date palms in their tubs.",
   },
   {
@@ -239,11 +237,11 @@ export const SET_PIECES: SetPiece[] = [
     lateral: 150,
     // The temple and its dome behind, the plaza and the throng (out to about 46 in front) before it.
     footprint: [
-      { x: 0, z: -45 * PREACHER_SCALE, r: 55 * PREACHER_SCALE },
-      { x: 0, z: 12 * PREACHER_SCALE, r: 62 * PREACHER_SCALE },
+      { x: 0, z: -45, r: 55 },
+      { x: 0, z: 12, r: 62 },
     ],
     pad: { tint: '#b09a78', amount: 0.8 },
-    padRadius: 80 * PREACHER_SCALE,
+    padRadius: 80,
     label: { title: 'The Preacher', sub: "in the plaza before Alia's temple", height: 52 },
     note: "The Preacher: blind Paul come back out of the desert, led by a boy, preaching against the priesthood raised in his own name to a throng in the plaza before Alia's temple in Arrakeen, on whose steps he is killed.",
   },

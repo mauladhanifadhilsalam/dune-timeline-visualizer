@@ -458,49 +458,6 @@ export class WorldProps {
       });
   }
 
-  /**
-   * The people in an event's scenes as they stand now, with the scene fully risen out of the sand
-   * (whatever its rise has reached this frame): where each one's feet are and how tall it is drawn,
-   * for checking they read in the event's view. People are what `markFigure` marks.
-   */
-  scenePeople(eventId: string): { at: THREE.Vector3; height: number }[] {
-    const out: { at: THREE.Vector3; height: number }[] = [];
-    const m = new THREE.Matrix4();
-    const scale = new THREE.Vector3();
-    const add = (world: THREE.Matrix4) => {
-      scale.setFromMatrixScale(world);
-      if (scale.y > 0.05) out.push({ at: new THREE.Vector3().setFromMatrixPosition(world), height: 0.95 * scale.y });
-    };
-    for (const piece of this.pieces) {
-      if (piece.event !== eventId) continue;
-      // A worm's rider rides with the worm, which swims outside the piece's own object.
-      piece.creature?.group.updateWorldMatrix(true, true);
-      piece.creature?.group.traverseVisible((o) => {
-        if (o.userData.figure) add(o.matrixWorld);
-      });
-      const root = piece.object;
-      if (!root?.visible || !piece.base) continue;
-      const position = root.position.clone();
-      const scaled = root.scale.clone();
-      root.position.copy(piece.base.center);
-      root.scale.setScalar(1);
-      root.updateWorldMatrix(true, true);
-      root.traverseVisible((o) => {
-        if (!o.userData.figure) return;
-        if (o instanceof THREE.InstancedMesh) {
-          for (let i = 0; i < o.count; i++) {
-            o.getMatrixAt(i, m);
-            add(m.premultiply(o.matrixWorld));
-          }
-        } else add(o.matrixWorld);
-      });
-      root.position.copy(position);
-      root.scale.copy(scaled);
-      root.updateWorldMatrix(true, true);
-    }
-    return out;
-  }
-
   /** Where the camera should turn to look when this event is chosen, if a scene asks for it. */
   turnTarget(eventId: string): THREE.Vector3 | null {
     const piece = this.pieces.find((p) => p.event === eventId && p.turn && p.base);

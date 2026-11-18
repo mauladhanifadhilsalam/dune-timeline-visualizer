@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { LETO_LENGTH, LETO_WIDTH } from './leto';
-import { IdahoRiver } from './river';
-import { WeddingProcession } from './wedding';
+import { DECK_WIDTH, IdahoRiver } from './river';
+import { ROYAL_CART_WIDTH, WeddingProcession } from './wedding';
 
 /** The size of a body drawn as an instanced mesh of rings: its length end to end, and its girth. */
 function bodySize(mesh: THREE.InstancedMesh): { length: number; width: number } {
@@ -49,5 +49,10 @@ describe("Leto II's body", () => {
     expect(inRiver.length).toBeLessThan(LETO_LENGTH * 1.05);
     expect(onCart.width).toBeCloseTo(LETO_WIDTH, 1);
     expect(inRiver.width).toBeCloseTo(onCart.width, 1);
+  });
+
+  it('rides a cart that fits on the bridge it crosses', () => {
+    expect(ROYAL_CART_WIDTH).toBeLessThan(DECK_WIDTH);
+    expect(LETO_WIDTH).toBeLessThan(ROYAL_CART_WIDTH);
   });
 });

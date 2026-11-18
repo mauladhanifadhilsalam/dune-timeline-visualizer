@@ -49,8 +49,8 @@ export class Sietch {
 
     this.band = new Procession({
       count: 8,
-      spacing: 13,
-      scale: 8.5,
+      spacing: 9,
+      scale: 5,
       cloak: '#3b2d22',
       route: [
         [face + 210, 95],

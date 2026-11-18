@@ -8,7 +8,7 @@ const RUN = 6;
 const REST = 3.5;
 /** Half the length of the run, in the piece's frame along X. */
 const REACH = 170;
-const SCALE = 9;
+const SCALE = 6;
 
 /**
  * Leto II in the sandtrout skin, in Children of Dune: the membrane over his body gives him a

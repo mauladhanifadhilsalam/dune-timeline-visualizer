@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { duneHeight } from '../desert';
-import { SKIN, figureGeometry, markFigure } from './figure';
+import { SKIN, figureGeometry } from './figure';
 
 export interface ProcessionOptions {
   /** Walkers in the file. */
@@ -51,7 +51,6 @@ export class Procession {
       new THREE.InstancedMesh(geo.head, skin, o.count),
       new THREE.InstancedMesh(geo.hood, cloth, o.count),
     ];
-    markFigure(this.parts[0]);
     for (const m of this.parts) m.frustumCulled = false;
     this.group.add(...this.parts);
     if (o.leader) this.group.add(o.leader.object);

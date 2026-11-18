@@ -229,9 +229,7 @@ and the scene runs on a fake clock, one fixed step per frame, so every run sees 
 - `tour`: the guided tour stays at the landings until they have played out, and says so
 - `map`: the map of Arrakis opens from an event's place, names its places without overlap, and leads back
 - `scenes`: every scene stands in clear view where its event opens: at least half of its ground on screen,
-  beside the card and out from under the labels' boxes, and its nearer people stand at least 28 pixels tall
-  (the Battle of Arrakeen's riders excepted, who grow with their worms). Dunes in front of a scene, and one
-  figure hiding another, are not checked.
+  beside the card and out from under the labels' boxes. Dunes in front of a scene are not checked.
 
 The page exposes its scene to the tests only with `?e2e` in the address. Set `E2E_BASE_URL` to run them
 against a running copy instead of `vite preview`: the Docker image (whose nginx adds the security headers
